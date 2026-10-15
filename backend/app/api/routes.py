@@ -4,6 +4,7 @@ from app.models.incident import IncidentSummary,IncidentDetail
 from app.data.synthetic import SYNTHETIC_INCIDENTS
 from app.models.investigation import InvestigationReport
 from app.services.investigator import investigator_service
+from app.services.vector_store import vector_store
 
 router=APIRouter(prefix="/api/v1")
 
@@ -51,3 +52,12 @@ def investigate_incident(incident_id:str):
         return report
     except Exception as e:
         raise HTTPException(status_code=500,detail=f"Investigation failed: {str(e)}")
+
+@router.get("/runbooks/search",tags=["Knowledge Base"])
+def search_runbooks(query:str,limit:int=2):
+    """Semantic vector search over SRE runbooks using pgvector"""
+    try:
+        results=vector_store.search_similar_docs(query,limit=limit)
+        return {"query":query,"matches":results}
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Search failed: {str(e)}")

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     #Gemini Configuration
     GEMINI_API_KEY:str=""
     GEMINI_MODEL:str="gemini-3.1-flash-lite"
+    DATABASE_URL: str = ""
 
     class Config:
         env_file=".env"
