@@ -5,6 +5,8 @@ from app.data.synthetic import SYNTHETIC_INCIDENTS
 from app.models.investigation import InvestigationReport
 from app.services.investigator import investigator_service
 from app.services.vector_store import vector_store
+from app.models.evaluation import EvaluationSuiteReport
+from app.services.evaluator import evaluation_engine
 
 router=APIRouter(prefix="/api/v1")
 
@@ -61,3 +63,12 @@ def search_runbooks(query:str,limit:int=2):
         return {"query":query,"matches":results}
     except Exception as e:
         raise HTTPException(status_code=500,detail=f"Search failed: {str(e)}")
+
+@router.post("/evaluations/run",response_model=EvaluationSuiteReport,tags=["Evaluation"])
+def run_evaluation_suite():
+    """Execute the automated evaluation suite against ground-truth benchmarks"""
+    try:
+        report=evaluation_engine.run_suite()
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Evaluation failed: {str(e)}")
