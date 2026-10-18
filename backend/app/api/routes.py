@@ -1,74 +1,84 @@
-from fastapi import APIRouter,HTTPException
+from fastapi import APIRouter,HTTPException,Request
 from typing import List
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from app.config import settings
 from app.models.incident import IncidentSummary,IncidentDetail
 from app.data.synthetic import SYNTHETIC_INCIDENTS
 from app.models.investigation import InvestigationReport
 from app.services.investigator import investigator_service
+from app.services.incident_repository import incident_repo
 from app.services.vector_store import vector_store
 from app.models.evaluation import EvaluationSuiteReport
 from app.services.evaluator import evaluation_engine
 
+limiter=Limiter(key_func=get_remote_address)
 router=APIRouter(prefix="/api/v1")
 
 @router.get("/health",tags=["System"])
 def health_check():
-    return {"status":"ok","app":"Zero500"}
+    try:
+        with incident_repo.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1;")
+        return {
+            "status":"healthy",
+            "database":"connected",
+            "model":settings.GEMINI_MODEL
+        }
+    except Exception as e:
+        return {
+            "status":"degraded",
+            "error":str(e)
+        }
 
 @router.get("/incidents",response_model=List[IncidentSummary],tags=["Incidents"])
 def list_incidents():
-    """List of all demo incidents."""
-    return[
-        IncidentSummary(
-            id=inc.id,
-            title=inc.title,
-            service=inc.service,
-            severity=inc.severity,
-            created_at=inc.created_at,
-            status=inc.status,
-        )
-        for inc in SYNTHETIC_INCIDENTS
-    ]
+    return incident_repo.list_all_summaries()
 
 @router.get("/incidents/{incident_id}",response_model=IncidentDetail,tags=["Incidents"])
 def get_incident(incident_id:str):
-    """Retrieve full incident details including logs and metrics."""
-    for inc in SYNTHETIC_INCIDENTS:
-        if inc.id.lower()==incident_id.lower():
-            return inc
-    raise HTTPException(status_code=404,detail="Incident not found")
+    inc=incident_repo.get_incident_by_id(incident_id)
+    if not inc:
+        raise HTTPException(status_code=404,detail="Incident not found")
+    return inc
+
+@router.post("/incidents/ingest",response_model=IncidentSummary,tags=["Incidents"])
+def ingest_incident(incident:IncidentDetail):
+    """
+    Live Telemetry Webhook: Ingest arbitrary production incidents from AlertManager,Datadog, PagerDuty or UI
+    """
+
+    try:
+        incident_repo.save_incident(incident)
+        return IncidentSummary(
+            id=incident.id,
+            title=incident.title,
+            service=incident.service,
+            severity=incident.severity,
+            created_at=incident.created_at,
+            status=incident.status
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Ingestion failed: {str(e)}")
 
 @router.post("/incidents/{incident_id}/investigate",response_model=InvestigationReport,tags=["Investigation"])
-def investigate_incident(incident_id:str):
-    """Trigger an AI investigation for a given incident."""
-    target_incident=None
-    for inc in SYNTHETIC_INCIDENTS:
-        if inc.id.lower()==incident_id.lower():
-            target_incident=inc
-            break
-
-    if not target_incident:
+@limiter.limit("5/minute")
+def investigate_incident(request:Request,incident_id:str):
+    inc=incident_repo.get_incident_by_id(incident_id)
+    if not inc:
         raise HTTPException(status_code=404,detail="Incident not found")
 
     try:
-        report=investigator_service.investigate(target_incident)
-        return report
+        return investigator_service.investigate(inc)
     except Exception as e:
         raise HTTPException(status_code=500,detail=f"Investigation failed: {str(e)}")
 
-@router.get("/runbooks/search",tags=["Knowledge Base"])
-def search_runbooks(query:str,limit:int=2):
-    """Semantic vector search over SRE runbooks using pgvector"""
-    try:
-        results=vector_store.search_similar_docs(query,limit=limit)
-        return {"query":query,"matches":results}
-    except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Search failed: {str(e)}")
-
 @router.post("/evaluations/run",response_model=EvaluationSuiteReport,tags=["Evaluation"])
-def run_evaluation_suite():
-    """Execute the automated evaluation suite against ground-truth benchmarks"""
+@limiter.limit("2/minute")
+def run_evaluation_suite(request:Request):
     try:
-        report=evaluation_engine.run_suite()
-        return report
+        return evaluation_engine.run_suite()
     except Exception as e:
         raise HTTPException(status_code=500,detail=f"Evaluation failed: {str(e)}")

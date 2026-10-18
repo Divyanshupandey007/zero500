@@ -34,17 +34,47 @@ class VectorStore:
         """Initializes tables and pgvector extension"""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
+                # Vector extension
                 cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+
+                # Runbooks knowledge base
                 cur.execute("""
-CREATE TABLE IF NOT EXISTS runbooks(
-id SERIAL PRIMARY KEY,
-title VARCHAR(255) NOT NULL,
-service VARCHAR(100) NOT NULL,
-doc_type VARCHAR(50) NOT NULL,
-content TEXT NOT NULL,
-embedding vector(768)
-);
-""")
+                    CREATE TABLE IF NOT EXISTS runbooks(
+                        id SERIAL PRIMARY KEY,
+                        title VARCHAR(255) NOT NULL,
+                        service VARCHAR(100) NOT NULL,
+                        doc_type VARCHAR(50) NOT NULL,
+                        content TEXT NOT NULL,
+                        embedding vector(768)
+                    );
+                """)
+
+                # Persistent incidents table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS incidents(
+                        id VARCHAR(50) PRIMARY KEY,
+                        title VARCHAR(255) NOT NULL,
+                        service VARCHAR(100) NOT NULL,
+                        severity VARCHAR(20) NOT NULL,
+                        status VARCHAR(50) NOT NULL,
+                        description TEXT NOT NULL,
+                        metrics_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
+                """)
+
+                # Telemetry logs table
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS incident_logs(
+                    id SERIAL PRIMARY KEY,
+                    incident_id VARCHAR(50) REFERENCES incidents(id) ON DELETE CASCADE,
+                    timestamp TIMESTAMPTZ NOT NULL,
+                    level VARCHAR(20) NOT NULL,
+                    service VARCHAR(100) NOT NULL,
+                    message TEXT NOT NULL,
+                    metadata JSONB DEFAULT '{}'::jsonb
+                    );
+                """)
                 conn.commit()
 
     def search_similar_docs(self,query_text:str,limit:int=2)->List[Dict[str,Any]]:
@@ -54,12 +84,12 @@ embedding vector(768)
         with self.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-SELECT id,title,service,doc_type,content,
-1 - (embedding <=> %s::vector) AS similarity_score
-FROM runbooks
-ORDER BY embedding <=> %s::vector ASC
-LIMIT %s;
-""",(query_vector,query_vector,limit)
+                    SELECT id,title,service,doc_type,content,
+                    1 - (embedding <=> %s::vector) AS similarity_score
+                    FROM runbooks
+                    ORDER BY embedding <=> %s::vector ASC
+                    LIMIT %s;
+                """,(query_vector,query_vector,limit)
                             )
                 rows=cur.fetchall()
                 results=[]

@@ -13,12 +13,8 @@ import {
   Severity,
   LogLevel,
   ActionPriority,
-  IncidentSummary,
-  IncidentDetail,
-  InvestigationReport,
-  LogEntry,
   MatchedRunbook,
-  EvidenceItem
+  LogEntry
 } from './models/incident.model';
 import { SystemMetadata } from './core/config/system.config';
 
@@ -62,16 +58,13 @@ export interface LogDensityTick {
 export class AppComponent implements OnInit {
   public readonly incidentService = inject(IncidentService);
 
-  // Decoupled dynamic system configuration
   public readonly systemConfig = computed<SystemMetadata>(() => this.incidentService.systemConfig());
 
-  // Filter and search signals
   public readonly searchQuery = signal<string>('');
   public readonly severityFilter = signal<string>('ALL');
   public readonly logFilter = signal<string>('ALL');
   public readonly logSearch = signal<string>('');
 
-  // UI state signals
   public readonly isEvalModalOpen = signal<boolean>(false);
   public readonly isDeepAnalysisOpen = signal<boolean>(false);
   public readonly activeRunbook = signal<MatchedRunbook | null>(null);
@@ -82,10 +75,8 @@ export class AppComponent implements OnInit {
   public readonly copiedText = signal<string | null>(null);
   public readonly copiedIncidentId = signal<string | null>(null);
 
-  // Severity definitions for filtering
   public readonly severities: ('ALL' | Severity)[] = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
-  // Runbook full content database for the slide-over drawer
   public readonly runbookContents: Record<string, { summary: string; triageSteps: string[]; commands: string[]; docType: string }> = {
     'Runbook: Checkout Service NullPointer & Auth Failure Triage': {
       docType: 'RUNBOOK',
@@ -143,7 +134,6 @@ export class AppComponent implements OnInit {
     }
   };
 
-  // Computed filtered incidents
   public readonly filteredIncidents = computed(() => {
     const list = this.incidentService.incidents();
     const query = this.searchQuery().toLowerCase().trim();
@@ -157,12 +147,10 @@ export class AppComponent implements OnInit {
         inc.service.toLowerCase().includes(query);
 
       const matchesSeverity = filter === 'ALL' || inc.severity === filter;
-
       return matchesSearch && matchesSeverity;
     });
   });
 
-  // Computed filtered logs
   public readonly filteredLogs = computed(() => {
     const selected = this.incidentService.selectedIncident();
     if (!selected || !selected.logs) return [];
@@ -182,7 +170,6 @@ export class AppComponent implements OnInit {
     });
   });
 
-  // Log Density Strip: compute percentage positions of error/warn logs
   public readonly logDensityTicks = computed<LogDensityTick[]>(() => {
     const selected = this.incidentService.selectedIncident();
     if (!selected || !selected.logs || selected.logs.length === 0) return [];
@@ -194,7 +181,6 @@ export class AppComponent implements OnInit {
     }));
   });
 
-  // Graphical Metrics Barometers with Industrial Sparklines
   public readonly currentMetrics = computed<MetricVisual[]>(() => {
     const selected = this.incidentService.selectedIncident();
     if (!selected || !selected.metrics_snapshot) return [];
@@ -244,7 +230,6 @@ export class AppComponent implements OnInit {
     });
   });
 
-  // Interactive Causal Graph Nodes
   public readonly causalFlowNodes = computed<CausalNode[]>(() => {
     const report = this.incidentService.currentReport();
     const incident = this.incidentService.selectedIncident();
@@ -274,7 +259,7 @@ export class AppComponent implements OnInit {
       return {
         index: idx + 1,
         stage,
-        title: this.deriveNodeTitle(ev.source, stage),
+        title: this.deriveNodeTitle(ev.source),
         source: ev.source,
         timeOffset: `T+${idx * 1.5}m`,
         icon,
@@ -285,14 +270,11 @@ export class AppComponent implements OnInit {
     });
   });
 
-  // Confidence percentage computed signal
   public readonly confidencePercentage = computed(() => {
     const report = this.incidentService.currentReport();
-    if (!report) return 0;
-    return Math.round(report.confidence_score * 100);
+    return report ? Math.round(report.confidence_score * 100) : 0;
   });
 
-  // Remediation Plan Checklist Progress
   public readonly remediationProgress = computed(() => {
     const report = this.incidentService.currentReport();
     if (!report || !report.remediation_plan) {
@@ -303,15 +285,9 @@ export class AppComponent implements OnInit {
     const completed = report.remediation_plan.filter((s) => this.isStepCompleted(s.action)).length;
     const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-    return {
-      total,
-      completed,
-      percent,
-      isAllDone: total > 0 && completed === total
-    };
+    return { total, completed, percent, isAllDone: total > 0 && completed === total };
   });
 
-  // Primary Culprit entity
   public readonly primaryCulprit = computed(() => {
     const report = this.incidentService.currentReport();
     const incident = this.incidentService.selectedIncident();
@@ -356,8 +332,9 @@ export class AppComponent implements OnInit {
 
   public investigateCurrentIncident(): void {
     const selected = this.incidentService.selectedIncident();
-    if (!selected) return;
-    this.investigateIncident(selected.id);
+    if (selected) {
+      this.investigateIncident(selected.id);
+    }
   }
 
   public investigateIncident(id: string): void {
@@ -446,9 +423,7 @@ export class AppComponent implements OnInit {
   }
 
   public copyCommand(cmd: string, event?: Event): void {
-    if (event) {
-      event.stopPropagation();
-    }
+    if (event) event.stopPropagation();
     this.copyToClipboard(cmd, 'Command Copied');
   }
 
@@ -475,23 +450,25 @@ export class AppComponent implements OnInit {
     }
   }
 
-  // Pure SVG Sparkline Generation in Steel-Blue / Monochrome or Safety Crimson
   private generateSparkline(key: string, isAlert: boolean): { path: string; areaPath: string } {
     if (isAlert || key.includes('error') || key.includes('timeout') || key.includes('active')) {
-      const path = 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2';
-      const areaPath = 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2 L 100,26 L 0,26 Z';
-      return { path, areaPath };
+      return {
+        path: 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2',
+        areaPath: 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2 L 100,26 L 0,26 Z'
+      };
     } else if (key.includes('latency')) {
-      const path = 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4';
-      const areaPath = 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4 L 100,26 L 0,26 Z';
-      return { path, areaPath };
+      return {
+        path: 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4',
+        areaPath: 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4 L 100,26 L 0,26 Z'
+      };
     }
-    const path = 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16';
-    const areaPath = 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16 L 100,26 L 0,26 Z';
-    return { path, areaPath };
+    return {
+      path: 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16',
+      areaPath: 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16 L 100,26 L 0,26 Z'
+    };
   }
 
-  private deriveNodeTitle(source: string, stage: string): string {
+  private deriveNodeTitle(source: string): string {
     const clean = source.replace(/Metrics:\s*/i, '').replace(/checkout-service log:\s*/i, '');
     return clean.length > 36 ? clean.substring(0, 36) + '...' : clean;
   }
@@ -505,18 +482,12 @@ export class AppComponent implements OnInit {
     return matched ? `[${matched.level}] ${matched.service}: ${matched.message}` : source;
   }
 
-  // Formatting & Style Helpers
   public formatMetricKey(key: string): string {
-    return key
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
   public formatMetricValue(value: any): string {
-    if (typeof value === 'number') {
-      return value.toLocaleString();
-    }
-    return String(value);
+    return typeof value === 'number' ? value.toLocaleString() : String(value);
   }
 
   public formatSimilarity(score: number): string {
@@ -540,62 +511,45 @@ export class AppComponent implements OnInit {
   public formatRelativeTime(dateStr: string): string {
     if (!dateStr) return '';
     try {
-      const now = Date.now();
-      const past = new Date(dateStr).getTime();
-      const diffMs = now - past;
+      const diffMs = Date.now() - new Date(dateStr).getTime();
       const diffMins = Math.floor(diffMs / 60000);
-
       if (diffMins < 1) return 'Just now';
       if (diffMins < 60) return `${diffMins}m ago`;
       const diffHours = Math.floor(diffMins / 60);
       if (diffHours < 24) return `${diffHours}h ago`;
-      const diffDays = Math.floor(diffHours / 24);
-      return `${diffDays}d ago`;
+      return `${Math.floor(diffHours / 24)}d ago`;
     } catch {
       return dateStr;
     }
   }
 
   public getSeverityBadgeClass(severity: Severity): string {
-    switch (severity) {
-      case 'CRITICAL':
-        return 'badge-critical';
-      case 'HIGH':
-        return 'badge-high';
-      case 'MEDIUM':
-        return 'badge-medium';
-      case 'LOW':
-        return 'badge-low';
-      default:
-        return 'badge-default';
-    }
+    const map: Record<Severity, string> = {
+      CRITICAL: 'badge-critical',
+      HIGH: 'badge-high',
+      MEDIUM: 'badge-medium',
+      LOW: 'badge-low'
+    };
+    return map[severity] || 'badge-default';
   }
 
   public getLogLevelBadgeClass(level: LogLevel): string {
-    switch (level) {
-      case 'ERROR':
-      case 'FATAL':
-        return 'log-badge-error';
-      case 'WARN':
-        return 'log-badge-warn';
-      case 'INFO':
-        return 'log-badge-info';
-      default:
-        return 'log-badge-default';
-    }
+    const map: Record<LogLevel, string> = {
+      ERROR: 'log-badge-error',
+      FATAL: 'log-badge-error',
+      WARN: 'log-badge-warn',
+      INFO: 'log-badge-info'
+    };
+    return map[level] || 'log-badge-default';
   }
 
   public getPriorityBadgeClass(priority: ActionPriority): string {
-    switch (priority) {
-      case 'IMMEDIATE':
-        return 'priority-immediate';
-      case 'SHORT_TERM':
-        return 'priority-short';
-      case 'LONG_TERM':
-        return 'priority-long';
-      default:
-        return '';
-    }
+    const map: Record<ActionPriority, string> = {
+      IMMEDIATE: 'priority-immediate',
+      SHORT_TERM: 'priority-short',
+      LONG_TERM: 'priority-long'
+    };
+    return map[priority] || '';
   }
 
   public extractCommand(description: string): string | null {
