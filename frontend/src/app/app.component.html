@@ -1,0 +1,887 @@
+<div class="zero500-app obsidian-theme">
+  <!-- Top Global Navigation Header -->
+  <header class="app-header industrial-header">
+    <div class="header-left">
+      <div class="logo-container">
+        <div class="logo-icon-wrapper">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <div class="logo-titles">
+          <div class="brand-name">
+            Zero500
+            <span class="badge-sre font-mono">SRE WAR ROOM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Minimal System Status (Replaces clunky center debug pill) -->
+      <div class="minimal-status-wrap"
+        [attr.title]="'Engine: ' + systemConfig().engineName + ' • Vector Store: ' + systemConfig().vectorStore + ' • ' + systemConfig().apiUrl">
+        <span class="status-radar-dot" [class.healthy]="systemConfig().status === 'HEALTHY'"
+          [class.degraded]="systemConfig().status === 'DEGRADED'"></span>
+        <span class="status-label font-mono">{{ systemConfig().status === 'HEALTHY' ? 'Operational' : 'Degraded'
+          }}</span>
+      </div>
+    </div>
+
+    <!-- Center Debug Pill: REMOVED COMPLETELY -->
+
+    <div class="header-right">
+      <!-- Sleek, borderless ghost button for Evaluation HUD -->
+      <button class="btn-ghost-hud font-mono" (click)="openEvaluationModal()">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+          <path
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        <span>Evaluation HUD</span>
+      </button>
+
+      <button class="btn-ghost-icon" (click)="loadIncidents()" title="Sync Telemetry">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+          [class.animate-spin]="incidentService.isIncidentsLoading()">
+          <path
+            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Split-Screen Stage -->
+  <main class="main-split-container">
+    <!-- Left Sidebar: Incident Drawer (30% width) -->
+    <aside class="sidebar-drawer industrial-panel">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <div class="sidebar-title font-mono">
+            <span>ACTIVE INCIDENTS</span>
+            <span class="count-pill font-mono">{{ filteredIncidents().length }}</span>
+          </div>
+          <span class="live-stream-tag font-mono">LIVE FEED</span>
+        </div>
+
+        <!-- Search Input -->
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input type="text" placeholder="Search incident, service, ID..." [ngModel]="searchQuery()"
+            (ngModelChange)="searchQuery.set($event)" />
+          @if (searchQuery()) {
+          <button class="clear-search" (click)="searchQuery.set('')">&times;</button>
+          }
+        </div>
+
+        <!-- Severity Filter Chips -->
+        <div class="severity-filters">
+          @for (sev of severities; track sev) {
+          <button class="filter-chip font-mono" [class.active]="severityFilter() === sev"
+            (click)="severityFilter.set(sev)">
+            @if (sev !== 'ALL') {
+            <span class="filter-dot" [class]="getSeverityBadgeClass(sev)"></span>
+            }
+            <span>{{ sev }}</span>
+          </button>
+          }
+        </div>
+      </div>
+
+      <!-- Incident List -->
+      <div class="incident-list-container">
+        @if (incidentService.isIncidentsLoading() && incidentService.incidents().length === 0) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span class="font-mono">Syncing incidents...</span>
+        </div>
+        } @else if (filteredIncidents().length === 0) {
+        <div class="empty-state">
+          <p>No incidents match query</p>
+          <button class="btn-text font-mono" (click)="searchQuery.set(''); severityFilter.set('ALL')">Reset</button>
+        </div>
+        } @else {
+        @for (inc of filteredIncidents(); track inc.id) {
+        <div class="incident-card" [class.selected]="incidentService.selectedIncident()?.id === inc.id"
+          (click)="selectIncident(inc.id)">
+          <div class="card-top-row">
+            <span class="severity-badge font-mono" [class]="getSeverityBadgeClass(inc.severity)">
+              {{ inc.severity }}
+            </span>
+            <span class="incident-id font-mono" (click)="copyIncidentId(inc.id, $event)" title="Copy ID">
+              {{ inc.id }}
+              @if (copiedIncidentId() === inc.id) {
+              <span class="copied-tooltip font-mono">Copied</span>
+              }
+            </span>
+            <span class="relative-time font-mono">{{ formatRelativeTime(inc.created_at) }}</span>
+          </div>
+
+          <div class="incident-card-title">{{ inc.title }}</div>
+
+          <div class="card-bottom-row">
+            <div class="service-pill font-mono">
+              <span class="service-dot"></span>
+              <span>{{ inc.service }}</span>
+            </div>
+
+            @if (incidentService.investigationReports()[inc.id]) {
+            <span class="analyzed-badge font-mono" title="Diagnosis Ready">
+              <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Diagnosed
+            </span>
+            } @else {
+            <span class="pending-badge font-mono">Triage</span>
+            }
+          </div>
+        </div>
+        }
+        }
+      </div>
+    </aside>
+
+    <!-- Right Stage: High-Density War Room Stage (70% width) -->
+    <section class="workspace-stage">
+      @if (incidentService.isIncidentDetailLoading()) {
+      <div class="workspace-loader industrial-panel">
+        <div class="spinner-large"></div>
+        <p class="font-mono text-slate-400">Loading incident telemetry...</p>
+      </div>
+      } @else if (incidentService.selectedIncident(); as incident) {
+      <div class="workspace-content">
+        <!-- 1. Apple-Inspired Hero Section (Clarity First) -->
+        <div class="incident-hero-card industrial-panel">
+          <!-- Breadcrumb Navigation -->
+          <div class="hero-breadcrumb font-mono">
+            <span class="crumb-root">Incidents</span>
+            <span class="crumb-sep">/</span>
+            <span class="crumb-id">{{ incident.id }}</span>
+            <span class="crumb-status-pill font-mono" [class]="getSeverityBadgeClass(incident.severity)">{{
+              incident.severity }}</span>
+          </div>
+
+          <div class="hero-main-row">
+            <div class="hero-title-group">
+              <h1 class="hero-title">{{ incident.title }}</h1>
+
+              <!-- Minimalist Metadata Row -->
+              <div class="hero-meta-row font-mono">
+                <span class="service-pill font-mono">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                  </svg>
+                  {{ incident.service }}
+                </span>
+                <span class="meta-dot">&bull;</span>
+                <span class="status-text">{{ incident.status }}</span>
+                <span class="meta-dot">&bull;</span>
+                <span class="time-text">{{ incident.created_at | date:'mediumTime' }}</span>
+                <span class="meta-dot">&bull;</span>
+                <span class="engine-badge">{{ systemConfig().engineName }}</span>
+              </div>
+            </div>
+
+            <div class="hero-action-group">
+              <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                (click)="investigateCurrentIncident()">
+                @if (incidentService.isInvestigating()) {
+                <span class="spinner-btn"></span>
+                <span>Synthesizing...</span>
+                } @else {
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>{{ incidentService.currentReport() ? 'Re-Analyze Telemetry' : 'Run Autonomous RCA' }}</span>
+                }
+              </button>
+            </div>
+          </div>
+
+          <!-- Metric Tiles (Apple Keynote Style: 3 Clean Cards) -->
+          <div class="metric-tiles-grid">
+            @for (m of currentMetrics().slice(0, 3); track m.key) {
+            <div class="metric-keynote-card" [class.metric-alert]="m.isAlert">
+              <div class="metric-card-top">
+                <span class="metric-label font-mono">{{ m.displayKey }}</span>
+                @if (m.isAlert) {
+                <span class="metric-alert-pill font-mono">ALERT</span>
+                }
+              </div>
+              <div class="metric-card-body">
+                <div class="metric-stat-group">
+                  <span class="metric-stat-num font-mono">{{ m.value }}</span>
+                  @if (m.unit) {
+                  <span class="metric-stat-unit font-mono">{{ m.unit }}</span>
+                  }
+                </div>
+                <div class="metric-sparkline-container">
+                  <svg viewBox="0 0 100 28" preserveAspectRatio="none" class="metric-spark-svg">
+                    <defs>
+                      <linearGradient [id]="'tile-grad-' + m.key" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" [attr.stop-color]="m.isAlert ? '#EF4444' : '#38BDF8'" stop-opacity="0.25" />
+                        <stop offset="100%" [attr.stop-color]="m.isAlert ? '#EF4444' : '#38BDF8'" stop-opacity="0.0" />
+                      </linearGradient>
+                    </defs>
+                    <path [attr.d]="m.sparklineArea" [attr.fill]="'url(#tile-grad-' + m.key + ')'" />
+                    <path [attr.d]="m.sparklinePath" fill="none" [attr.stroke]="m.isAlert ? '#EF4444' : '#38BDF8'"
+                      stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            }
+          </div>
+        </div>
+
+        <!-- 2. SRE Intelligence Centerpiece -->
+        @if (incidentService.currentReport(); as report) {
+        <section id="ai-investigation-report" class="sre-intelligence-card industrial-panel fade-in">
+          @if (report.requires_human_escalation) {
+          <div class="escalation-alert-banner">
+            <div class="alert-icon-wrap">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <div class="alert-content">
+              <div class="alert-title font-mono">SEV-1 ALERT: HUMAN ESCALATION REQUIRED</div>
+              <div class="alert-desc">Database connection pool exhaustion or system lock detected. Manual intervention
+                required.</div>
+            </div>
+            <span class="escalation-badge font-mono">ESCALATED</span>
+          </div>
+          }
+
+          <!-- Verdict Banner: Culprit & Confidence -->
+          <div class="verdict-main-row">
+            <div class="verdict-left">
+              <div class="verdict-tag font-mono">
+                <span class="verdict-dot"></span>
+                <span>PRIMARY CULPRIT VERDICT</span>
+                <span class="grounded-badge-emerald font-mono">
+                  <span class="chip-glow-dot"></span>
+                  Grounded
+                </span>
+              </div>
+              <div class="verdict-culprit-code font-mono">
+                {{ primaryCulprit() }}
+              </div>
+              <div class="verdict-quote font-sans">
+                "{{ report.executive_summary }}"
+              </div>
+            </div>
+
+            <!-- Radial SVG circular confidence dial -->
+            <div class="verdict-confidence-dial">
+              <div class="dial-svg-wrap">
+                <svg viewBox="0 0 100 100" class="mini-radial-svg">
+                  <circle cx="50" cy="50" r="38" class="gauge-track"></circle>
+                  <circle cx="50" cy="50" r="38" class="gauge-indicator"
+                    [style.strokeDashoffset]="238 - (238 * report.confidence_score)"></circle>
+                </svg>
+                <div class="dial-center font-mono">
+                  <span class="dial-score">{{ confidencePercentage() }}%</span>
+                  <span class="dial-sub">CONF</span>
+                </div>
+              </div>
+              <div class="dial-meta font-mono">
+                <span class="dial-title">{{ report.confidence_score >= 0.9 ? 'HIGH CONFIDENCE' : 'MODERATE' }}</span>
+                <span class="dial-model font-mono">{{ systemConfig().activeModel }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Causal Flow Cascade (Failure Timeline) with flex-wrap and responsive wrap -->
+          <div class="causal-timeline-section">
+            <div class="timeline-header">
+              <div class="timeline-title font-mono">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                <span>CAUSAL FAILURE CASCADE</span>
+              </div>
+              <span class="timeline-hint font-mono">Click step to inspect telemetry proof</span>
+            </div>
+
+            <div class="causal-steps-wrap">
+              @for (node of causalFlowNodes(); track node.index; let isLast = $last) {
+              <div class="causal-step-tile" [class.active]="selectedCausalNode()?.index === node.index"
+                [class.step-trigger]="node.stage === 'TRIGGER'" [class.step-impact]="node.stage === 'IMPACT'"
+                (click)="selectCausalNode(node)">
+                <div class="step-tile-top font-mono">
+                  <span class="step-stage-pill font-mono">{{ node.badge }}</span>
+                  <span class="step-time font-mono">{{ node.timeOffset }}</span>
+                </div>
+                <div class="step-tile-title font-mono">{{ node.title }}</div>
+                <div class="step-tile-source font-mono">{{ node.source }}</div>
+
+                <div class="step-tile-footer font-mono">
+                  <span class="grounded-chip-inline">
+                    <span class="chip-glow-dot"></span>
+                    Grounded
+                  </span>
+                  <span class="inspect-action-label">
+                    {{ selectedCausalNode()?.index === node.index ? 'Close ▲' : 'Inspect ▼' }}
+                  </span>
+                </div>
+
+                @if (selectedCausalNode()?.index === node.index) {
+                <div class="step-proof-popover fade-in" (click)="$event.stopPropagation()">
+                  <div class="proof-explanation font-sans">{{ node.detail }}</div>
+                  @if (node.rawLogSnippet) {
+                  <div class="proof-code-snippet font-mono">
+                    <code>{{ node.rawLogSnippet }}</code>
+                    <button class="btn-copy-code font-mono"
+                      (click)="copyToClipboard(node.rawLogSnippet, 'Snippet copied')">Copy</button>
+                  </div>
+                  }
+                </div>
+                }
+              </div>
+
+              @if (!isLast) {
+              <div class="timeline-arrow-sep">
+                <svg viewBox="0 0 20 12" class="arrow-svg">
+                  <line x1="0" y1="6" x2="14" y2="6" stroke="#2A303A" stroke-width="2" />
+                  <polygon points="14,3 20,6 14,9" fill="#475569" />
+                </svg>
+              </div>
+              }
+              }
+            </div>
+          </div>
+        </section>
+        }
+
+        <!-- 3. Grafana-Style Segmented Workbench (Tabs for Deep Dive) -->
+        <div class="grafana-workbench-container industrial-panel">
+          <!-- Segmented Control Tab Bar -->
+          <div class="workbench-tabs-bar">
+            <div class="tabs-segmented-control font-mono">
+              <button class="tab-btn" [class.active]="activeWorkbenchTab() === 'PLAYBOOK'"
+                (click)="setWorkbenchTab('PLAYBOOK')">
+                <span class="tab-icon">📋</span>
+                <span>Remediation Playbook</span>
+                <span class="tab-pill">{{ remediationProgress().completed }}/{{ remediationProgress().total }}</span>
+              </button>
+
+              <button class="tab-btn" [class.active]="activeWorkbenchTab() === 'LOGS'"
+                (click)="setWorkbenchTab('LOGS')">
+                <span class="tab-icon">📜</span>
+                <span>Telemetry Log Explorer</span>
+                <span class="tab-pill">{{ filteredLogs().length }}</span>
+              </button>
+
+              <button class="tab-btn" [class.active]="activeWorkbenchTab() === 'RUNBOOKS'"
+                (click)="setWorkbenchTab('RUNBOOKS')">
+                <span class="tab-icon">📚</span>
+                <span>Runbooks & Vectors</span>
+                <span class="tab-pill">{{ incidentService.currentReport()?.matched_runbooks?.length || 0 }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TAB 1: Remediation Playbook (Full Width) -->
+          @if (activeWorkbenchTab() === 'PLAYBOOK') {
+          <div class="tab-content-panel fade-in">
+            @if (incidentService.currentReport(); as report) {
+            <div class="playbook-tab-body">
+              <div class="playbook-topbar">
+                <div class="playbook-title font-mono">
+                  <span class="section-bullet">●</span>
+                  <span>ORDERED RECOVERY CHECKLIST</span>
+                </div>
+
+                <!-- Clean Progress Bar Indicator -->
+                <div class="resolution-progress font-mono">
+                  <span>Resolved {{ remediationProgress().completed }} of {{ remediationProgress().total }} steps</span>
+                  <div class="progress-mini-bar">
+                    <div class="progress-mini-fill" [style.width.%]="remediationProgress().percent"></div>
+                  </div>
+                  <span class="progress-pct">{{ remediationProgress().percent }}%</span>
+                </div>
+              </div>
+
+              <div class="playbook-list">
+                @for (step of report.remediation_plan; track step.action; let idx = $index) {
+                <div class="playbook-step-card" [class.completed]="isStepCompleted(step.action)"
+                  [class.priority-immediate]="step.priority === 'IMMEDIATE'">
+                  <div class="step-check-cell">
+                    <input type="checkbox" [id]="'playbook-step-' + idx" [checked]="isStepCompleted(step.action)"
+                      (change)="toggleRemediationStep(step.action)" class="milestone-checkbox" />
+                  </div>
+
+                  <div class="step-main-cell">
+                    <div class="step-meta-line font-mono">
+                      <span class="priority-badge-mini" [class]="getPriorityBadgeClass(step.priority)">
+                        {{ step.priority }}
+                      </span>
+                      <span class="step-num-label">Step {{ idx + 1 }}</span>
+                      @if (step.runbook_reference) {
+                      <span class="step-rb-ref">Ref: {{ step.runbook_reference }}</span>
+                      }
+                    </div>
+
+                    <div class="step-action-title font-mono" [class.line-through]="isStepCompleted(step.action)">
+                      {{ step.action }}
+                    </div>
+                    <div class="step-desc-text">{{ step.description }}</div>
+
+                    @if (extractCommand(step.description); as cmd) {
+                    <div class="cli-command-badge" (click)="copyCommand(cmd, $event)" title="Click to copy CLI command">
+                      <span class="cli-prompt font-mono">$</span>
+                      <code class="cli-code font-mono">{{ cmd }}</code>
+                      <span class="cli-copy-btn font-mono">
+                        {{ copiedText() === 'Command Copied' ? 'Copied!' : 'Copy' }}
+                      </span>
+                    </div>
+                    }
+                  </div>
+                </div>
+                }
+              </div>
+            </div>
+            } @else {
+            <div class="awaiting-rca-panel">
+              <div class="awaiting-icon-wrap">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div class="awaiting-title font-mono">REMEDIATION PLAYBOOK AWAITING SYNTHESIS</div>
+              <p class="awaiting-desc">
+                Run Autonomous RCA to evaluate telemetry, extract root cause failure cascades, and generate actionable
+                1-click recovery commands.
+              </p>
+              <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                (click)="investigateCurrentIncident()">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Run Autonomous RCA</span>
+              </button>
+            </div>
+            }
+          </div>
+          }
+
+          <!-- TAB 2: Telemetry Log Explorer (Full-Width SRE Terminal) -->
+          @if (activeWorkbenchTab() === 'LOGS') {
+          <div class="tab-content-panel logs-tab-panel fade-in">
+            <div class="terminal-topbar">
+              <div class="macos-dots">
+                <span class="mac-dot mac-red"></span>
+                <span class="mac-dot mac-yellow"></span>
+                <span class="mac-dot mac-green"></span>
+              </div>
+
+              <div class="terminal-title font-mono">
+                <span>TELEMETRY LOG EXPLORER</span>
+                <span class="badge-count font-mono">{{ filteredLogs().length }} entries</span>
+              </div>
+
+              <!-- Log Level Filter Tabs -->
+              <div class="terminal-filter-tabs font-mono">
+                <button class="filter-tab" [class.active]="logFilter() === 'ALL'"
+                  (click)="logFilter.set('ALL')">ALL</button>
+                <button class="filter-tab tab-error" [class.active]="logFilter() === 'ERROR'"
+                  (click)="logFilter.set('ERROR')">ERROR</button>
+                <button class="filter-tab tab-warn" [class.active]="logFilter() === 'WARN'"
+                  (click)="logFilter.set('WARN')">WARN</button>
+                <button class="filter-tab tab-info" [class.active]="logFilter() === 'INFO'"
+                  (click)="logFilter.set('INFO')">INFO</button>
+              </div>
+
+              <!-- Grep Search Input -->
+              <div class="terminal-grep-box">
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" placeholder="Grep logs..." [ngModel]="logSearch()"
+                  (ngModelChange)="logSearch.set($event)" class="terminal-grep-input font-mono" />
+              </div>
+            </div>
+
+            <!-- Log Density Heat Strip -->
+            <div class="log-density-strip" title="Chronological error density heat ribbon">
+              @for (tick of logDensityTicks(); track $index) {
+              <span class="density-tick" [class.tick-error]="tick.level === 'ERROR' || tick.level === 'FATAL'"
+                [class.tick-warn]="tick.level === 'WARN'" [class.tick-info]="tick.level === 'INFO'"
+                [style.left.%]="tick.positionPct"></span>
+              }
+            </div>
+
+            <!-- Full-Width Monospace Log Stream strictly constrained to terminal window -->
+            <div class="terminal-body font-mono">
+              @if (filteredLogs().length === 0) {
+              <div class="no-logs">No log entries match the active grep query.</div>
+              } @else {
+              @for (log of filteredLogs(); track log.timestamp + log.message) {
+              <div class="log-row" [class]="'row-' + log.level.toLowerCase()">
+                <span class="row-time font-mono">{{ formatTimestamp(log.timestamp) }}</span>
+                <span class="row-badge font-mono" [class]="getLogLevelBadgeClass(log.level)">
+                  {{ log.level }}
+                </span>
+                <span class="row-service font-mono">{{ log.service }}</span>
+                <span class="row-msg font-mono">{{ log.message }}</span>
+                <button class="btn-copy-log" (click)="copyToClipboard(log.message, 'Log copied')" title="Copy log line">
+                  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                </button>
+              </div>
+              }
+              }
+            </div>
+          </div>
+          }
+
+          <!-- TAB 3: Runbooks & Past Post-Mortems (Full Width) -->
+          @if (activeWorkbenchTab() === 'RUNBOOKS') {
+          <div class="tab-content-panel fade-in">
+            @if (incidentService.currentReport(); as report) {
+            <div class="runbooks-tab-body">
+              <div class="runbooks-topbar font-mono">
+                <span class="section-bullet">●</span>
+                <span>RETRIEVED INSTITUTIONAL RUNBOOKS</span>
+              </div>
+
+              <div class="runbooks-cards-grid">
+                @for (rb of report.matched_runbooks; track rb.title) {
+                <div class="runbook-full-card" (click)="openRunbookDrawer(rb)">
+                  <div class="card-left-ring">
+                    <div class="mini-ring-wrap">
+                      <svg viewBox="0 0 36 36" class="mini-ring-svg">
+                        <circle cx="18" cy="18" r="14" class="ring-track"></circle>
+                        <circle cx="18" cy="18" r="14" class="ring-fill"
+                          [style.strokeDashoffset]="88 - (88 * rb.similarity_score)"></circle>
+                      </svg>
+                      <span class="ring-text font-mono">{{ formatSimilarity(rb.similarity_score) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="card-center-info">
+                    <div class="card-type-row font-mono">
+                      <span class="chip-type" [class.type-postmortem]="rb.doc_type === 'PAST_POSTMORTEM'">
+                        {{ rb.doc_type }}
+                      </span>
+                      <span class="match-label font-mono">Cosine Match: {{ formatSimilarity(rb.similarity_score)
+                        }}</span>
+                    </div>
+                    <h3 class="card-title">{{ rb.title }}</h3>
+                    <p class="card-desc">{{ runbookContents[rb.title]?.summary || 'Standard operating procedure matching
+                      active incident symptoms.' }}</p>
+                  </div>
+
+                  <div class="card-right-action font-mono">
+                    <button class="btn-open-rb font-mono">
+                      <span>Open SOP</span>
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                }
+              </div>
+            </div>
+            } @else {
+            <div class="awaiting-rca-panel">
+              <div class="awaiting-icon-wrap">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                </svg>
+              </div>
+              <div class="awaiting-title font-mono">RUNBOOK RETRIEVAL AWAITING SYNTHESIS</div>
+              <p class="awaiting-desc">
+                Execute Autonomous RCA to query {{ systemConfig().vectorStore }} embeddings for past post-mortems and
+                remediation runbooks.
+              </p>
+              <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                (click)="investigateCurrentIncident()">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Run Autonomous RCA</span>
+              </button>
+            </div>
+            }
+          </div>
+          }
+        </div>
+      </div>
+      } @else {
+      <div class="empty-workspace industrial-panel">
+        <p class="font-mono text-slate-400">Select an active incident from the war room drawer to begin triage.</p>
+      </div>
+      }
+    </section>
+  </main>
+
+  <!-- Slide-Over Runbook Drawer -->
+  @if (activeRunbook(); as rb) {
+  <div class="runbook-drawer-backdrop" (click)="closeRunbookDrawer()">
+    <div class="runbook-drawer industrial-panel" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <div class="drawer-title-box">
+          <span class="drawer-tag font-mono">{{ rb.doc_type }}</span>
+          <h2 class="drawer-title">{{ rb.title }}</h2>
+          <div class="drawer-meta font-mono">
+            <span>Vector Similarity: {{ formatSimilarity(rb.similarity_score) }} match</span>
+            &bull;
+            <span>{{ systemConfig().vectorStore }}</span>
+          </div>
+        </div>
+        <button class="drawer-close-btn" (click)="closeRunbookDrawer()">&times;</button>
+      </div>
+
+      <div class="drawer-body">
+        @if (runbookContents[rb.title]; as content) {
+        <div class="drawer-section">
+          <span class="drawer-section-title font-mono">OVERVIEW & SCOPE</span>
+          <p class="drawer-text">{{ content.summary }}</p>
+        </div>
+
+        <div class="drawer-section">
+          <span class="drawer-section-title font-mono">DIAGNOSTIC & TRIAGE STEPS</span>
+          <ul class="drawer-list">
+            @for (step of content.triageSteps; track step) {
+            <li>{{ step }}</li>
+            }
+          </ul>
+        </div>
+
+        <div class="drawer-section">
+          <span class="drawer-section-title font-mono">ACTIONABLE CLI COMMANDS</span>
+          <div class="drawer-commands-list">
+            @for (cmd of content.commands; track cmd) {
+            <div class="drawer-cmd-box" (click)="copyCommand(cmd, $event)">
+              <span class="drawer-cmd-prompt font-mono">$</span>
+              <code class="drawer-cmd-code font-mono">{{ cmd }}</code>
+              <button class="btn-copy-drawer font-mono">Copy</button>
+            </div>
+            }
+          </div>
+        </div>
+        } @else {
+        <div class="drawer-section">
+          <span class="drawer-section-title font-mono">RUNBOOK CONTENT</span>
+          <p class="drawer-text">Retrieved via {{ systemConfig().vectorStore }} cosine distance: {{
+            formatSimilarity(rb.similarity_score) }} match.</p>
+        </div>
+        }
+      </div>
+
+      <div class="drawer-footer">
+        <button class="btn-secondary font-mono" (click)="closeRunbookDrawer()">Close (Esc)</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Evaluation Suite Modal: Benchmark Scorecard HUD -->
+  @if (isEvalModalOpen()) {
+  <div class="modal-backdrop" (click)="closeEvaluationModal()">
+    <div class="eval-modal-window industrial-panel" (click)="$event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <div class="modal-title-box">
+          <div class="modal-badge font-mono">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon
+                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            <span>BENCHMARK SCORECARD HUD</span>
+          </div>
+          <h2 class="modal-heading">Ground-Truth SRE Evaluation</h2>
+          <p class="modal-sub">
+            Automated vector recall and LLM-as-a-judge faithfulness alignment.
+          </p>
+        </div>
+
+        <button class="modal-close-btn" (click)="closeEvaluationModal()" title="Close benchmark (Esc)">
+          &times;
+        </button>
+      </div>
+
+      <!-- Evaluation Body -->
+      <div class="modal-body">
+        <div class="eval-action-bar">
+          <div class="eval-meta font-mono">
+            <span class="status-dot-emerald"></span>
+            <span>Dataset: EVAL_GROUND_TRUTH benchmarks</span>
+          </div>
+
+          <button class="btn-action-primary font-mono btn-eval-run" [disabled]="incidentService.isEvaluating()"
+            (click)="runEvaluationSuite()">
+            @if (incidentService.isEvaluating()) {
+            <span class="spinner-btn"></span>
+            <span>Benchmarking Suite...</span>
+            } @else {
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            <span>Re-Run Evaluation Suite</span>
+            }
+          </button>
+        </div>
+
+        <!-- 4 Circular Dial Gauges for KPIs -->
+        @if (incidentService.evaluationReport(); as evalReport) {
+        <div class="eval-hud-dials-grid">
+          <!-- Dial 1: Retrieval Recall -->
+          <div class="hud-dial-card">
+            <div class="hud-dial-wrap">
+              <svg viewBox="0 0 100 100" class="hud-dial-svg">
+                <circle cx="50" cy="50" r="38" class="dial-track"></circle>
+                <circle cx="50" cy="50" r="38" class="dial-fill dial-emerald"
+                  [style.strokeDashoffset]="238 - (238 * evalReport.retrieval_recall)"></circle>
+              </svg>
+              <div class="dial-val-center font-mono">
+                {{ formatPercentage(evalReport.retrieval_recall) }}
+              </div>
+            </div>
+            <div class="hud-dial-title font-mono">Retrieval Recall</div>
+            <div class="hud-dial-sub">Top-2 runbook match</div>
+          </div>
+
+          <!-- Dial 2: Faithfulness -->
+          <div class="hud-dial-card">
+            <div class="hud-dial-wrap">
+              <svg viewBox="0 0 100 100" class="hud-dial-svg">
+                <circle cx="50" cy="50" r="38" class="dial-track"></circle>
+                <circle cx="50" cy="50" r="38" class="dial-fill dial-steel"
+                  [style.strokeDashoffset]="238 - (238 * evalReport.average_faithfulness)"></circle>
+              </svg>
+              <div class="dial-val-center font-mono">
+                {{ formatPercentage(evalReport.average_faithfulness) }}
+              </div>
+            </div>
+            <div class="hud-dial-title font-mono">Faithfulness</div>
+            <div class="hud-dial-sub">Telemetry grounded</div>
+          </div>
+
+          <!-- Dial 3: Diagnosis Accuracy -->
+          <div class="hud-dial-card">
+            <div class="hud-dial-wrap">
+              <svg viewBox="0 0 100 100" class="hud-dial-svg">
+                <circle cx="50" cy="50" r="38" class="dial-track"></circle>
+                <circle cx="50" cy="50" r="38" class="dial-fill dial-cyan"
+                  [style.strokeDashoffset]="238 - (238 * evalReport.average_diagnosis_accuracy)"></circle>
+              </svg>
+              <div class="dial-val-center font-mono">
+                {{ formatPercentage(evalReport.average_diagnosis_accuracy) }}
+              </div>
+            </div>
+            <div class="hud-dial-title font-mono">Accuracy</div>
+            <div class="hud-dial-sub">LLM-as-a-judge</div>
+          </div>
+
+          <!-- Dial 4: Latency -->
+          <div class="hud-dial-card">
+            <div class="hud-dial-wrap">
+              <svg viewBox="0 0 100 100" class="hud-dial-svg">
+                <circle cx="50" cy="50" r="38" class="dial-track"></circle>
+                <circle cx="50" cy="50" r="38" class="dial-fill dial-amber"
+                  [style.strokeDashoffset]="238 - (238 * (evalReport.average_latency_seconds / 5))"></circle>
+              </svg>
+              <div class="dial-val-center font-mono">
+                {{ evalReport.average_latency_seconds }}s
+              </div>
+            </div>
+            <div class="hud-dial-title font-mono">Latency</div>
+            <div class="hud-dial-sub">End-to-end inference</div>
+          </div>
+        </div>
+
+        <!-- Individual Test Cases Accordion -->
+        <div class="test-cases-section">
+          <div class="test-cases-header">
+            <span class="font-mono text-slate-400">BENCHMARK TEST CASES</span>
+            <span class="count-tag font-mono">
+              {{ evalReport.test_cases.length }} Cases
+            </span>
+          </div>
+
+          <div class="test-cases-list">
+            @for (tc of evalReport.test_cases; track tc.incident_id) {
+            <div class="test-case-item" [class.expanded]="isTestCaseExpanded(tc.incident_id)">
+              <div class="test-case-summary" (click)="toggleTestCaseExpand(tc.incident_id)">
+                <div class="tc-id-col">
+                  <span class="tc-toggle-icon font-mono">
+                    {{ isTestCaseExpanded(tc.incident_id) ? '▼' : '▶' }}
+                  </span>
+                  <span class="tc-id font-mono">{{ tc.incident_id }}</span>
+                </div>
+
+                <div class="tc-badges-col">
+                  <span class="retrieval-pill font-mono" [class.success]="tc.retrieval_success">
+                    {{ tc.retrieval_success ? '✓ RETRIEVED' : '✗ MISS' }}
+                  </span>
+                  <span class="score-badge font-mono">
+                    Faithfulness: {{ formatPercentage(tc.faithfulness_score) }}
+                  </span>
+                  <span class="score-badge font-mono">
+                    Accuracy: {{ formatPercentage(tc.diagnosis_alignment_score) }}
+                  </span>
+                  <span class="latency-badge font-mono">
+                    {{ tc.latency_seconds }}s
+                  </span>
+                </div>
+              </div>
+
+              @if (isTestCaseExpanded(tc.incident_id)) {
+              <div class="test-case-details font-mono">
+                <div class="detail-block">
+                  <span class="detail-label font-mono">Top Runbook Retrieved:</span>
+                  <span class="detail-val text-steel font-mono">{{ tc.details['top_runbook_retrieved'] }}</span>
+                </div>
+                <div class="detail-block">
+                  <span class="detail-label font-mono">Predicted Root Cause:</span>
+                  <p class="detail-val">{{ tc.details['predicted_root_cause'] }}</p>
+                </div>
+              </div>
+              }
+            </div>
+            }
+          </div>
+        </div>
+        } @else if (incidentService.isEvaluating()) {
+        <div class="eval-loading-state">
+          <div class="spinner-large"></div>
+          <p class="font-mono text-slate-300">Benchmarking ground-truth SRE cases...</p>
+          <span class="eval-subtext font-mono">Evaluating vector recall and LLM-as-a-judge score</span>
+        </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary font-mono" (click)="closeEvaluationModal()">Close (Esc)</button>
+      </div>
+    </div>
+  </div>
+  }
+
+  <!-- Minimalist Notification Toast -->
+  @if (copiedText(); as text) {
+  <div class="toast-notification font-mono">
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+    <span>{{ text }}</span>
+  </div>
+  }
+</div>

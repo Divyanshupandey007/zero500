@@ -1,11 +1,31 @@
+# Secrets & Sensitive Data
+.env
+*.env
+!.env.example
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 .venv/
-.env
+venv/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Angular
+node_modules/
+.angular/
+dist/
+.npm
+*.log
 
 # IDE
 .idea/
 .vscode/
 *.swp
+*.swo
+.DS_Store
+Thumbs.db
