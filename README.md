@@ -11,7 +11,6 @@ Turn noisy application telemetry into an evidence-backed root-cause investigatio
 <p>
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" />
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
-  <img alt="Gemini 2.5 Flash" src="https://img.shields.io/badge/Gemini-2.5%20Flash-8E75B2?logo=googlegemini&logoColor=white" />
   <img alt="PostgreSQL and pgvector" src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white" />
   <img alt="Angular" src="https://img.shields.io/badge/Angular-DD0031?logo=angular&logoColor=white" />
   <img alt="Tailwind CSS and Obsidian UI" src="https://img.shields.io/badge/UI-Tailwind%20%2F%20Obsidian-242424?logo=tailwindcss&logoColor=white" />
@@ -36,7 +35,7 @@ The aim is to move from **“something failed”** to **“here is the likely tr
 
 - **Incident ingestion:** Accept alert and telemetry payloads through a versioned webhook API.
 - **Grounded retrieval:** Search SRE runbooks and historical post-mortems with PostgreSQL and `pgvector`.
-- **Structured reasoning:** Use Gemini 2.5 Flash with native JSON-schema constrained output and Pydantic v2 validation.
+- **Structured reasoning:** Use Gemini with native JSON-schema constrained output and Pydantic v2 validation.
 - **Causal timeline:** Present the investigation as **Root Trigger → Propagation → Blast Radius**.
 - **SRE workbench:** Explore the remediation playbook, telemetry logs, and retrieved knowledge vectors in a Grafana-inspired interface.
 - **Evaluation-first workflow:** Run repeatable ground-truth evaluations and automated UAT probes.
@@ -90,7 +89,7 @@ flowchart TD
     E --> F[(pgvector knowledge index)]
     C --> G[Investigation orchestrator<br/>parallel context retrieval]
     F --> G
-    G --> H[Gemini 2.5 Flash reasoning<br/>native structured JSON output]
+    G --> H[Gemini 3.5 Flash reasoning<br/>native structured JSON output]
     H --> I[Pydantic v2 validation<br/>InvestigationReport]
     I --> J[Angular SRE War Room<br/>causal timeline and evidence]
     J --> K[Evaluation suite and UAT review]
@@ -103,7 +102,7 @@ flowchart TD
 |---|---|---|
 | API and orchestration | Python 3.12, FastAPI | Versioned REST API and investigation workflow |
 | Schema contracts | Pydantic v2 | Request validation and typed investigation reports |
-| AI reasoning | Google Gen AI SDK, `gemini-2.5-flash` | Incident analysis and structured RCA generation |
+| AI reasoning | Google Gen AI SDK, `gemini-3.5-flash` | Incident analysis and structured RCA generation |
 | Embeddings | `gemini-embedding-001` (768 dimensions) | Embed runbook and post-mortem chunks |
 | Retrieval and persistence | Neon Serverless PostgreSQL, `pgvector` | Incident/log storage and cosine-distance retrieval via `<=>` |
 | Abuse and quota protection | SlowAPI | IP-based rate limiting on AI endpoints |
@@ -264,7 +263,7 @@ curl "http://127.0.0.1:8000/api/v1/runbooks/search?query=database%20connection%2
 - [x] **Stage 4 — Investigation workbench:** causal failure cascade, telemetry explorer, remediation playbook, and knowledge-vector view.
 - [x] **Stage 5 — Evaluation and UAT:** ground-truth benchmark suite, evaluation endpoint, and automated sanity probes.
 - [x] **Stage 6 — Backend hardening:** request validation, five-minute investigation cache, IP-based rate limiting, and recorded UAT verification.
-- [ ] **Stage 7 — Public deployment:** deploy the backend to Render and the Angular frontend to Cloudflare Pages; validate environment configuration, hosted database connectivity, cold starts, and public rate limits.
+- [x] **Stage 7 — Public deployment:** deploy the backend to Render and the Angular frontend to Cloudflare Pages; validate environment configuration, hosted database connectivity, cold starts, and public rate limits.
 
 ## Repository layout
 
