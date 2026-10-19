@@ -158,7 +158,7 @@ Create `backend/.env` with the environment variables expected by the backend con
 
 ```dotenv
 GEMINI_API_KEY=replace_with_your_api_key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.5-flash
 EMBEDDING_MODEL=gemini-embedding-001
 EMBEDDING_DIMENSIONS=768
 DATABASE_URL=postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require
