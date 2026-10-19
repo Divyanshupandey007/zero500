@@ -10,6 +10,8 @@ from app.data.eval_dataset import EVAL_GROUND_TRUTH
 from app.data.synthetic import SYNTHETIC_INCIDENTS
 from app.services.investigator import investigator_service
 
+from concurrent.futures import ThreadPoolExecutor
+
 class JudgeScore(BaseModel):
     alignment_score:float=Field(ge=0.0,le=1.0,description="Score 0.0 to 1.0 on how well the hypothesis matches ground truth")
     reasoning:str=Field(description="Explanation of the score")
@@ -64,46 +66,49 @@ AI Predicted Root Cause:
         judge_res:JudgeScore=response.parsed
         return judge_res.alignment_score
 
+    def _evaluate_single(self, test, incident_map):
+        inc_id=test["incident_id"]
+        incident=incident_map.get(inc_id)
+        if not incident:
+            return None
+
+        start_time=time.time()
+        report:InvestigationReport=investigator_service.investigate(incident)
+        latency=round(time.time()-start_time,2)
+
+        # Retrieval Eval
+        retrieval_success=any(
+            test["expected_runbook_keyword"].lower() in mb.title.lower()
+            for mb in report.matched_runbooks
+        )
+
+        # Faithfulness Eval
+        faithfulness=self._eval_faithfulness(incident,report)
+
+        # LLM as a Judge Eval
+        accuracy=self._judge_diagnosis_accuracy(
+            test["ground_truth_root_cause"],
+            report.suspected_root_cause
+        )
+
+        return TestCaseResult(
+            incident_id=inc_id,
+            retrieval_success=retrieval_success,
+            faithfulness_score=faithfulness,
+            diagnosis_alignment_score=accuracy,
+            latency_seconds=latency,
+            details={
+                "predicted_root_cause":report.suspected_root_cause,
+                "top_runbook_retrieved":report.matched_runbooks[0].title if report.matched_runbooks else "None"
+            }
+        )
+
     def run_suite(self)->EvaluationSuiteReport:
-        results=[]
         incident_map={inc.id:inc for inc in SYNTHETIC_INCIDENTS}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            raw_results = list(executor.map(lambda test: self._evaluate_single(test, incident_map), EVAL_GROUND_TRUTH))
 
-        for test in EVAL_GROUND_TRUTH:
-            inc_id=test["incident_id"]
-            incident=incident_map.get(inc_id)
-            if not incident:
-                continue
-
-            start_time=time.time()
-            report:InvestigationReport=investigator_service.investigate(incident)
-            latency=round(time.time()-start_time,2)
-
-            # Retrieval Eval
-            retrieval_success=any(
-                test["expected_runbook_keyword"].lower() in mb.title.lower()
-                for mb in report.matched_runbooks
-            )
-
-            # Faithfulness Eval
-            faithfulness=self._eval_faithfulness(incident,report)
-
-            # LLM as a Judge Eval
-            accuracy=self._judge_diagnosis_accuracy(
-                test["ground_truth_root_cause"],
-                report.suspected_root_cause
-            )
-
-            results.append(TestCaseResult(
-                incident_id=inc_id,
-                retrieval_success=retrieval_success,
-                faithfulness_score=faithfulness,
-                diagnosis_alignment_score=accuracy,
-                latency_seconds=latency,
-                details={
-                    "predicted_root_cause":report.suspected_root_cause,
-                    "top_runbook_retrieved":report.matched_runbooks[0].title if report.matched_runbooks else "None"
-                }
-            ))
+        results = [r for r in raw_results if r is not None]
 
         total=len(results)
         recall=round(sum(1 for r in results if r.retrieval_success)/total,2)

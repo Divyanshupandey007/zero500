@@ -33,6 +33,14 @@ def health_check():
             "error":str(e)
         }
 
+@router.get("/runbooks/search", tags=["Knowledge"])
+def search_runbooks(query: str, limit: int = 2):
+    try:
+        matches = vector_store.search_similar_docs(query, limit=limit)
+        return {"matches": matches}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 @router.get("/incidents",response_model=List[IncidentSummary],tags=["Incidents"])
 def list_incidents():
     return incident_repo.list_all_summaries()

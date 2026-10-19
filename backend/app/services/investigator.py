@@ -1,3 +1,4 @@
+import time
 from google import genai
 from google.genai import types
 from app.config import settings
@@ -11,6 +12,7 @@ class IncidentInvestigator:
             raise ValueError("GEMINI_API_KEY is not set. Please add it to your .env file.")
 
         self.client=genai.Client(api_key=settings.GEMINI_API_KEY)
+        self._cache = {}
 
     def build_retrieval_query(self,incident:IncidentDetail)->str:
         """Extract the most salient symptoms to query the vector database"""
@@ -19,6 +21,12 @@ class IncidentInvestigator:
         return f"{incident.title} {incident.service} {sample_errors}"
 
     def investigate(self,incident:IncidentDetail)->InvestigationReport:
+        cache_key = f"{incident.id}:{len(incident.logs)}:{incident.status}"
+        if cache_key in self._cache:
+            ts, cached_report = self._cache[cache_key]
+            if time.time() - ts < 300:
+                return cached_report
+
         # Retrieval step
         retrieval_query=self.build_retrieval_query(incident)
         retrieved_docs=vector_store.search_similar_docs(retrieval_query,limit=2)
@@ -79,6 +87,7 @@ Perform a deep investigation and return a structured incident report.
             for doc in retrieved_docs
         ]
 
+        self._cache[cache_key] = (time.time(), report)
         return report
 
 investigator_service=IncidentInvestigator()
