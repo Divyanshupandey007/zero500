@@ -15,10 +15,16 @@ import { SystemMetadata, DEFAULT_SYSTEM_CONFIG } from '../core/config/system.con
 })
 export class IncidentService {
   private readonly http = inject(HttpClient);
-  public readonly baseUrl = 'http://localhost:8000/api/v1';
 
   // System Configuration & Metadata (Decoupled & Dynamic)
   public readonly systemConfig = signal<SystemMetadata>(DEFAULT_SYSTEM_CONFIG);
+
+  public get baseUrl(): string {
+    return this.systemConfig().apiUrl;
+  }
+
+  // Local cache for ingested incidents to guarantee instant read-after-write
+  public readonly localIncidentDetails = new Map<string, IncidentDetail>();
 
   // State Signals
   public readonly incidents = signal<IncidentSummary[]>([]);
@@ -388,6 +394,37 @@ export class IncidentService {
   }
 
   /**
+   * POST /incidents/ingest -> Live Webhook Ingestion
+   */
+  public ingestIncident(incident: IncidentDetail): Observable<IncidentSummary> {
+    this.localIncidentDetails.set(incident.id, incident);
+
+    const summary: IncidentSummary = {
+      id: incident.id,
+      title: incident.title,
+      service: incident.service,
+      severity: incident.severity,
+      created_at: incident.created_at || new Date().toISOString(),
+      status: incident.status || 'INVESTIGATING'
+    };
+
+    // Prepend to incidents list signal immediately so sidebar reflects the new incident
+    this.incidents.update((list) => [summary, ...list.filter((i) => i.id !== summary.id)]);
+
+    return this.http.post<IncidentSummary>(`${this.systemConfig().apiUrl}/incidents/ingest`, incident).pipe(
+      tap((res) => {
+        this.isBackendConnected.set(true);
+        this.isSimulatedMode.set(false);
+        this.incidents.update((list) => [res, ...list.filter((i) => i.id !== res.id)]);
+      }),
+      catchError((err) => {
+        console.warn('Backend /incidents/ingest unreachable or simulated mode active. Retaining incident locally.', err);
+        return of(summary);
+      })
+    );
+  }
+
+  /**
    * GET /incidents -> Returns IncidentSummary[]
    */
   public getIncidents(): Observable<IncidentSummary[]> {
@@ -396,7 +433,16 @@ export class IncidentService {
 
     return this.http.get<IncidentSummary[]>(`${this.baseUrl}/incidents`).pipe(
       tap((data) => {
-        this.incidents.set(data);
+        const localSummaries = Array.from(this.localIncidentDetails.values()).map((inc) => ({
+          id: inc.id,
+          title: inc.title,
+          service: inc.service,
+          severity: inc.severity,
+          created_at: inc.created_at,
+          status: inc.status
+        }));
+        const combined = [...localSummaries.filter((l) => !data.some((d) => d.id === l.id)), ...data];
+        this.incidents.set(combined);
         this.isBackendConnected.set(true);
         this.isSimulatedMode.set(false);
         this.isIncidentsLoading.set(false);
@@ -407,8 +453,8 @@ export class IncidentService {
         this.isSimulatedMode.set(true);
         this.isIncidentsLoading.set(false);
 
-        // Fallback to synthetic incidents
-        const summaries: IncidentSummary[] = this.fallbackIncidents.map((inc) => ({
+        // Fallback to synthetic incidents + any locally ingested ones
+        const localSummaries = Array.from(this.localIncidentDetails.values()).map((inc) => ({
           id: inc.id,
           title: inc.title,
           service: inc.service,
@@ -416,8 +462,20 @@ export class IncidentService {
           created_at: inc.created_at,
           status: inc.status
         }));
-        this.incidents.set(summaries);
-        return of(summaries);
+        const fallbackSummaries = this.fallbackIncidents.map((inc) => ({
+          id: inc.id,
+          title: inc.title,
+          service: inc.service,
+          severity: inc.severity,
+          created_at: inc.created_at,
+          status: inc.status
+        }));
+        const combined = [
+          ...localSummaries.filter((l) => !fallbackSummaries.some((f) => f.id === l.id)),
+          ...fallbackSummaries
+        ];
+        this.incidents.set(combined);
+        return of(combined);
       })
     );
   }
@@ -429,16 +487,19 @@ export class IncidentService {
     this.isIncidentDetailLoading.set(true);
     this.activeError.set(null);
 
+    const localMatch = this.localIncidentDetails.get(id);
+
     return this.http.get<IncidentDetail>(`${this.baseUrl}/incidents/${id}`).pipe(
       tap((detail) => {
         this.selectedIncident.set(detail);
+        this.localIncidentDetails.set(detail.id, detail);
         this.isIncidentDetailLoading.set(false);
         this.isBackendConnected.set(true);
       }),
       catchError((err) => {
         console.warn(`Failed to fetch incident ${id} from live API. Falling back to local dataset.`, err);
         this.isIncidentDetailLoading.set(false);
-        const match = this.fallbackIncidents.find((i) => i.id.toLowerCase() === id.toLowerCase()) || this.fallbackIncidents[0];
+        const match = localMatch || this.fallbackIncidents.find((i) => i.id.toLowerCase() === id.toLowerCase()) || this.fallbackIncidents[0];
         this.selectedIncident.set(match);
         return of(match);
       })
@@ -463,19 +524,69 @@ export class IncidentService {
       }),
       catchError((err) => {
         console.warn(`Investigate endpoint failed or offline for ${id}. Providing high-fidelity simulated Gemini RCA analysis.`, err);
+        const incidentDetail = this.localIncidentDetails.get(id) || this.fallbackIncidents.find((i) => i.id === id) || this.selectedIncident();
+        const mockReport = this.fallbackReports[id] || (incidentDetail ? this.generateDynamicReport(incidentDetail) : this.fallbackReports['INC-5001']);
+
         // Simulate real LLM latency for realistic user feedback
-        return of(this.fallbackReports[id] || this.fallbackReports['INC-5001']).pipe(
+        return of(mockReport).pipe(
           delay(1200),
-          tap((mockReport) => {
+          tap((report) => {
             this.investigationReports.update((prev) => ({
               ...prev,
-              [id]: mockReport
+              [id]: report
             }));
             this.isInvestigating.set(false);
           })
         );
       })
     );
+  }
+
+  /**
+   * Generates a grounded, high-fidelity RCA report for custom or chaos incidents when backend is offline
+   */
+  private generateDynamicReport(incident: IncidentDetail): InvestigationReport {
+    const errorLogs = (incident.logs || []).filter((l) => l.level === 'ERROR' || l.level === 'FATAL');
+    const primaryError = errorLogs[0]?.message || incident.logs?.[0]?.message || 'Uncaught exception during execution';
+
+    return {
+      incident_id: incident.id,
+      executive_summary: `Autonomous RCA identified telemetry anomaly in ${incident.service}. Error stream indicates service degradation requiring immediate mitigation.`,
+      suspected_root_cause: `${incident.service} triggered failure: ${primaryError.slice(0, 190)}`,
+      confidence_score: 0.94,
+      matched_runbooks: [
+        {
+          title: `Runbook: ${incident.service} Outage Triage & Fast Recovery`,
+          doc_type: 'RUNBOOK',
+          similarity_score: 0.912
+        }
+      ],
+      evidence: (incident.logs || []).slice(0, 3).map((log) => ({
+        source: `${log.service} log [${log.level}]`,
+        detail: log.message
+      })),
+      remediation_plan: [
+        {
+          action: `Inspect ${incident.service} container logs and process status`,
+          priority: 'IMMEDIATE',
+          description: `Execute: kubectl logs -l app=${incident.service} --tail=100 -n production | grep -E "ERROR|FATAL"`,
+          runbook_reference: `Runbook: ${incident.service} Outage Triage & Fast Recovery`
+        },
+        {
+          action: `Verify upstream rate-limiting and scale replicas`,
+          priority: 'IMMEDIATE',
+          description: `Scale deployment replicas by +50% or cycle unresponsive pods to flush starved connection handles.`,
+          runbook_reference: null
+        },
+        {
+          action: `Audit retry backoff configuration and database query pool`,
+          priority: 'SHORT_TERM',
+          description: `Tune downstream connection pool timeout to prevent worker thread starvation.`,
+          runbook_reference: null
+        }
+      ],
+      requires_human_escalation: incident.severity === 'CRITICAL'
+    };
   }
 
   /**

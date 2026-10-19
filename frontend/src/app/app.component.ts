@@ -14,7 +14,8 @@ import {
   LogLevel,
   ActionPriority,
   MatchedRunbook,
-  LogEntry
+  LogEntry,
+  IncidentDetail
 } from './models/incident.model';
 import { SystemMetadata } from './core/config/system.config';
 
@@ -66,6 +67,16 @@ export class AppComponent implements OnInit {
   public readonly logSearch = signal<string>('');
 
   public readonly isEvalModalOpen = signal<boolean>(false);
+  public readonly isInvestigationModalOpen = signal<boolean>(false);
+  public readonly isSubmitting = signal<boolean>(false);
+  public readonly toastMessage = signal<string | null>(null);
+
+  // New Investigation Form Signals
+  public readonly investigationTitle = signal<string>('');
+  public readonly investigationService = signal<string>('');
+  public readonly investigationSeverity = signal<Severity>('CRITICAL');
+  public readonly investigationRawLogs = signal<string>('');
+
   public readonly isDeepAnalysisOpen = signal<boolean>(false);
   public readonly activeRunbook = signal<MatchedRunbook | null>(null);
   public readonly selectedCausalNode = signal<CausalNode | null>(null);
@@ -133,6 +144,27 @@ export class AppComponent implements OnInit {
       ]
     }
   };
+
+  public getRunbookDetail(title: string): { summary: string; triageSteps: string[]; commands: string[]; docType: string } {
+    if (this.runbookContents[title]) {
+      return this.runbookContents[title];
+    }
+    const service = this.incidentService.selectedIncident()?.service || 'service';
+    return {
+      docType: 'RUNBOOK',
+      summary: `Standard Operating Procedure for handling telemetry alerts, upstream saturation, and failover in ${service}.`,
+      triageSteps: [
+        `Inspect ingress proxy routing tables and upstream health checks for ${service}.`,
+        `Verify container pod metrics, cgroup limits, and restart exit codes via kubectl.`,
+        `If error rate persists above SLA threshold, initiate graceful traffic shed or rollback.`
+      ],
+      commands: [
+        `kubectl logs -l app=${service} --tail=100 -n production | grep -E "ERROR|FATAL"`,
+        `kubectl top pods -l app=${service} -n production --containers`,
+        `kubectl rollout status deployment/${service} -n production`
+      ]
+    };
+  }
 
   public readonly filteredIncidents = computed(() => {
     const list = this.incidentService.incidents();
@@ -259,13 +291,13 @@ export class AppComponent implements OnInit {
       return {
         index: idx + 1,
         stage,
-        title: this.deriveNodeTitle(ev.source),
+        title: this.deriveNodeTitle(ev.source, ev.detail),
         source: ev.source,
         timeOffset: `T+${idx * 1.5}m`,
         icon,
         detail: ev.detail,
         badge,
-        rawLogSnippet: this.findMatchingLogSnippet(ev.source, incident.logs)
+        rawLogSnippet: this.findMatchingLogSnippet(ev.source, incident.logs) || ev.detail
       };
     });
   });
@@ -301,7 +333,14 @@ export class AppComponent implements OnInit {
       return 'payment-gateway-proxy ➔ Stripe API Client Timeout (8400ms)';
     }
 
-    return `${incident.service} ➔ Anomaly Source`;
+    if (report.suspected_root_cause) {
+      const summary = report.suspected_root_cause.length > 70
+        ? report.suspected_root_cause.slice(0, 70) + '...'
+        : report.suspected_root_cause;
+      return `${incident.service} ➔ ${summary}`;
+    }
+
+    return `${incident.service} ➔ Root Anomaly Identified`;
   });
 
   ngOnInit(): void {
@@ -439,9 +478,128 @@ export class AppComponent implements OnInit {
     });
   }
 
+  public openInvestigationModal(): void {
+    this.isInvestigationModalOpen.set(true);
+  }
+
+  public closeInvestigationModal(): void {
+    this.isInvestigationModalOpen.set(false);
+  }
+
+  public clearInvestigationForm(): void {
+    this.investigationTitle.set('');
+    this.investigationService.set('');
+    this.investigationRawLogs.set('');
+    this.investigationSeverity.set('CRITICAL');
+  }
+
+
+  public submitInvestigation(): void {
+    const title = this.investigationTitle().trim() || 'Spike in 502 Bad Gateway errors on auth proxy';
+    const service = this.investigationService().trim() || 'auth-proxy';
+    const severity = this.investigationSeverity();
+    const rawLogs = this.investigationRawLogs().trim();
+
+    this.isSubmitting.set(true);
+
+    const generatedId = `INC-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = Date.now();
+
+    // 1. Parse submitted text into LogEntry records (auto-detect timestamps or use current UTC, auto-detect level ERROR/WARN/INFO)
+    const lines = rawLogs
+      ? rawLogs.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
+      : [`[ERROR] ${service}: Uncaught runtime exception causing service degradation`];
+
+    const logs: LogEntry[] = lines.map((line, idx) => {
+      let level: LogLevel = 'INFO';
+      const upper = line.toUpperCase();
+      if (upper.includes('FATAL') || upper.includes('CRITICAL')) {
+        level = 'FATAL';
+      } else if (
+        upper.includes('ERROR') ||
+        upper.includes('EXCEPTION') ||
+        upper.includes('FAILED') ||
+        upper.includes('500') ||
+        upper.includes('502') ||
+        upper.includes('504')
+      ) {
+        level = 'ERROR';
+      } else if (upper.includes('WARN')) {
+        level = 'WARN';
+      }
+
+      // Check for timestamp at start of line
+      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/);
+      const timestamp = timestampMatch
+        ? new Date(timestampMatch[1]).toISOString()
+        : new Date(now - (lines.length - idx) * 15 * 1000).toISOString();
+
+      let cleanMessage = line;
+      if (timestampMatch) {
+        cleanMessage = cleanMessage.substring(timestampMatch[0].length).trim();
+      }
+      cleanMessage = cleanMessage.replace(/^\[?(?:INFO|WARN|WARNING|ERROR|FATAL|DEBUG|CRITICAL)\]?\s*[:-]?\s*/i, '');
+      cleanMessage = cleanMessage.replace(new RegExp(`^${service}\\s*[:-]?\s*`, 'i'), '');
+
+      return {
+        timestamp,
+        level,
+        service,
+        message: cleanMessage || line
+      };
+    });
+
+    const incident: IncidentDetail = {
+      id: generatedId,
+      title,
+      service,
+      severity,
+      status: 'INVESTIGATING',
+      created_at: new Date(now).toISOString(),
+      description: `Autonomous investigation initiated for ${service}: ${title}`,
+      metrics_snapshot: {
+        error_rate_percentage: severity === 'CRITICAL' ? 36.4 : severity === 'HIGH' ? 18.2 : 6.1,
+        latency_p99_ms: severity === 'CRITICAL' ? 3200 : severity === 'HIGH' ? 1650 : 540,
+        pod_restart_count: severity === 'CRITICAL' ? 4 : 0,
+        active_threads: 310
+      },
+      logs
+    };
+
+    // 2. Post to incidentService.ingestIncident()
+    // 3. Prepend the new incident to active list, select it immediately, trigger the investigation, and close modal.
+    this.incidentService.ingestIncident(incident).subscribe({
+      next: (summary) => {
+        this.isSubmitting.set(false);
+        this.closeInvestigationModal();
+        this.selectIncident(summary.id);
+        this.investigateIncident(summary.id);
+        this.showToast(`Incident ${summary.id} registered for autonomous root-cause analysis`);
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.closeInvestigationModal();
+        this.selectIncident(incident.id);
+        this.investigateIncident(incident.id);
+        this.showToast(`Incident ${incident.id} registered for autonomous root-cause analysis`);
+      }
+    });
+  }
+
+  public showToast(msg: string, duration: number = 3500): void {
+    this.toastMessage.set(msg);
+    setTimeout(() => {
+      if (this.toastMessage() === msg) {
+        this.toastMessage.set(null);
+      }
+    }, duration);
+  }
+
   @HostListener('document:keydown.escape')
   public handleEscape(): void {
-    if (this.activeRunbook()) {
+    if (this.isInvestigationModalOpen()) {
+      this.closeInvestigationModal();
+    } else if (this.activeRunbook()) {
       this.closeRunbookDrawer();
     } else if (this.isEvalModalOpen()) {
       this.closeEvaluationModal();
@@ -468,8 +626,41 @@ export class AppComponent implements OnInit {
     };
   }
 
-  private deriveNodeTitle(source: string): string {
-    const clean = source.replace(/Metrics:\s*/i, '').replace(/checkout-service log:\s*/i, '');
+  private deriveNodeTitle(source: string, detail?: string): string {
+    const textToAnalyze = (detail && detail.trim().length > 0 ? detail.trim() : source) || '';
+
+    // Check if source is a generic log label (e.g. "payment-gw log [ERROR]" or "service log [WARN]")
+    const isGenericLogSource = !source || /log\s*\[(?:ERROR|WARN|FATAL|INFO|DEBUG|CRITICAL)\]/i.test(source);
+
+    // 1. Check for Exception class name in detail or source (e.g. ConnectionPoolTimeoutException, SocketTimeoutError)
+    const exceptionMatch = textToAnalyze.match(/\b([A-Z][a-zA-Z0-9]*(?:Exception|Error|Timeout|Fault|Failure|Starvation|Exhaustion|OOMKilled))\b/);
+    if (exceptionMatch && exceptionMatch[1]) {
+      return exceptionMatch[1];
+    }
+
+    // 2. If it's a generic log source, extract the first 4 to 6 words of the log message / detail
+    if (detail && isGenericLogSource) {
+      const cleaned = detail
+        .replace(/^\[?\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\]?\s*/i, '')
+        .replace(/^\[?(?:ERROR|FATAL|WARN|INFO|DEBUG|CRITICAL)\]?[:\s]*/i, '')
+        .replace(/^\[[\w.-]+\][:\s]*/i, '')
+        .replace(/^[\w.-]+:\s*/i, '')
+        .trim();
+
+      const words = cleaned.split(/\s+/).filter((w) => w.length > 0);
+      if (words.length > 0) {
+        const wordCount = Math.min(words.length, 6);
+        const titleCandidate = words.slice(0, wordCount).join(' ');
+        return titleCandidate.length > 40 ? titleCandidate.substring(0, 40) + '...' : titleCandidate;
+      }
+    }
+
+    // 3. Fallback for structured / baseline sources (e.g. "checkout-service log: OrderController.process line 84")
+    const clean = source
+      .replace(/Metrics:\s*/i, '')
+      .replace(/^[\w-]+(?:\s*log)?:\s*/i, '')
+      .trim();
+
     return clean.length > 36 ? clean.substring(0, 36) + '...' : clean;
   }
 

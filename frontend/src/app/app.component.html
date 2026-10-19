@@ -14,21 +14,20 @@
           </div>
         </div>
       </div>
-
-      <div class="minimal-status-wrap"
-        [attr.title]="'Engine: ' + systemConfig().engineName + ' • Vector Store: ' + systemConfig().vectorStore + ' • ' + systemConfig().apiUrl">
-        <span class="status-radar-dot" [class.healthy]="systemConfig().status === 'HEALTHY'"
-          [class.degraded]="systemConfig().status === 'DEGRADED'"></span>
-        <span class="status-label font-mono">{{ systemConfig().status === 'HEALTHY' ? 'Operational' : 'Degraded' }}</span>
-      </div>
     </div>
 
     <div class="header-right">
-      <button class="btn-ghost-hud font-mono" (click)="openEvaluationModal()">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      <button class="btn-new-investigation font-mono" (click)="openInvestigationModal()" title="Start New Investigation">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-        <span>Evaluation HUD</span>
+        <span>New Investigation</span>
+      </button>
+
+      <button class="btn-ghost-hud font-mono" (click)="openEvaluationModal()" title="Benchmark Scorecard">
+        <span class="hud-chart-icon">📊</span>
+        <span>Benchmark Scorecard</span>
       </button>
 
       <button class="btn-ghost-icon" (click)="loadIncidents()" title="Sync Telemetry">
@@ -169,7 +168,7 @@
               </div>
 
               <div class="hero-action-group">
-                <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                <button class="btn-reanalyze-secondary font-mono" [disabled]="incidentService.isInvestigating()"
                   (click)="investigateCurrentIncident()">
                   @if (incidentService.isInvestigating()) {
                     <span class="spinner-btn"></span>
@@ -436,7 +435,7 @@
                     <p class="awaiting-desc">
                       Run Autonomous RCA to evaluate telemetry, extract root cause failure cascades, and generate actionable 1-click recovery commands.
                     </p>
-                    <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                    <button class="btn-reanalyze-secondary font-mono" [disabled]="incidentService.isInvestigating()"
                       (click)="investigateCurrentIncident()">
                       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -570,7 +569,7 @@
                     <p class="awaiting-desc">
                       Execute Autonomous RCA to query {{ systemConfig().vectorStore }} embeddings for past post-mortems and remediation runbooks.
                     </p>
-                    <button class="btn-action-primary font-mono" [disabled]="incidentService.isInvestigating()"
+                    <button class="btn-reanalyze-secondary font-mono" [disabled]="incidentService.isInvestigating()"
                       (click)="investigateCurrentIncident()">
                       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -608,7 +607,7 @@
         </div>
 
         <div class="drawer-body">
-          @if (runbookContents[rb.title]; as content) {
+          @if (getRunbookDetail(rb.title); as content) {
             <div class="drawer-section">
               <span class="drawer-section-title font-mono">OVERVIEW & SCOPE</span>
               <p class="drawer-text">{{ content.summary }}</p>
@@ -662,7 +661,7 @@
               <span>BENCHMARK SCORECARD HUD</span>
             </div>
             <h2 class="modal-heading">Ground-Truth SRE Evaluation</h2>
-            <p class="modal-sub">Automated vector recall and LLM-as-a-judge faithfulness alignment.</p>
+            <p class="modal-sub">Pre-configured SRE ground-truth benchmark suite for measuring LLM accuracy and retrieval recall.</p>
           </div>
 
           <button class="modal-close-btn" (click)="closeEvaluationModal()" title="Close benchmark (Esc)">&times;</button>
@@ -801,7 +800,122 @@
     </div>
   }
 
-  @if (copiedText(); as text) {
+  <!-- Start New Investigation Modal -->
+  @if (isInvestigationModalOpen()) {
+    <div class="modal-backdrop" (click)="closeInvestigationModal()">
+      <div class="investigation-modal-window industrial-panel" (click)="$event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <div class="modal-title-area">
+            <h2 class="modal-heading">New Incident Investigation</h2>
+            <p class="modal-sub">Submit incident telemetry or stack traces for autonomous root-cause analysis.</p>
+          </div>
+          <button class="modal-close-btn" (click)="closeInvestigationModal()" title="Close (Esc)">&times;</button>
+        </div>
+
+        <!-- Modal Body: Clean Single-Form View -->
+        <div class="modal-body investigation-modal-body">
+          <!-- Row 1: Full-Width Title Input -->
+          <div class="form-group full-width">
+            <label class="form-label font-mono">Incident Title *</label>
+            <input
+              type="text"
+              class="form-input font-mono"
+              placeholder="e.g. Spike in 502 Bad Gateway errors on auth proxy"
+              [ngModel]="investigationTitle()"
+              (ngModelChange)="investigationTitle.set($event)"
+            />
+          </div>
+
+          <!-- Row 2: 2 Columns: Service Name and Severity Selector -->
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label class="form-label font-mono">Service Name *</label>
+              <input
+                type="text"
+                class="form-input font-mono"
+                placeholder="e.g. auth-proxy"
+                [ngModel]="investigationService()"
+                (ngModelChange)="investigationService.set($event)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label font-mono">Severity</label>
+              <div class="severity-selector-bar">
+                @for (sev of ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']; track sev) {
+                  <button
+                    type="button"
+                    class="severity-opt-btn font-mono"
+                    [class.active]="investigationSeverity() === sev"
+                    [class]="'opt-' + sev.toLowerCase()"
+                    (click)="investigationSeverity.set($any(sev))"
+                  >
+                    <span class="opt-dot" [class]="getSeverityBadgeClass($any(sev))"></span>
+                    <span>{{ sev }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Logs & Stack Trace -->
+          <div class="form-group">
+            <div class="label-row">
+              <label class="form-label font-mono">Logs &amp; Stack Trace</label>
+              <span class="label-helper font-mono">Monospace format • Auto-detects log levels &amp; timestamps</span>
+            </div>
+            <textarea
+              class="form-textarea font-mono"
+              rows="6"
+              placeholder="Paste application logs, JSON telemetry, or stack traces..."
+              [ngModel]="investigationRawLogs()"
+              (ngModelChange)="investigationRawLogs.set($event)"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Footer Actions (Left: Clear All; Right: Cancel & Start Investigation) -->
+        <div class="modal-footer investigation-modal-footer">
+          <div class="footer-left">
+            <button class="btn-clear-all font-mono" (click)="clearInvestigationForm()" type="button" title="Clear all fields">
+              Clear All
+            </button>
+          </div>
+          <div class="footer-right">
+            <button class="btn-cancel font-mono" (click)="closeInvestigationModal()" type="button">
+              Cancel
+            </button>
+            <button
+              class="btn-start-investigation font-mono"
+              (click)="submitInvestigation()"
+              [disabled]="isSubmitting() || (!investigationTitle() && !investigationRawLogs())"
+              type="button"
+            >
+              @if (isSubmitting()) {
+                <div class="spinner-sm"></div>
+                <span>Initiating Investigation...</span>
+              } @else {
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                <span>Start Investigation</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (toastMessage(); as msg) {
+    <div class="toast-notification font-mono">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      <span>{{ msg }}</span>
+    </div>
+  } @else if (copiedText(); as text) {
     <div class="toast-notification font-mono">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="20 6 9 17 4 12" />
