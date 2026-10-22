@@ -290,7 +290,7 @@
                   <span class="timeline-hint font-mono">Click step to inspect telemetry proof</span>
                 </div>
 
-                <div class="causal-steps-wrap">
+                <div class="causal-steps-wrap causal-flow-diagram">
                   @for (node of causalFlowNodes(); track node.index; let isLast = $last) {
                     <div class="causal-step-tile" [class.active]="selectedCausalNode()?.index === node.index"
                       [class.step-trigger]="node.stage === 'TRIGGER'" [class.step-impact]="node.stage === 'IMPACT'"
@@ -360,7 +360,7 @@
                 <button class="tab-btn" [class.active]="activeWorkbenchTab() === 'RUNBOOKS'"
                   (click)="setWorkbenchTab('RUNBOOKS')">
                   <span class="tab-icon">📚</span>
-                  <span>Runbooks & Vectors</span>
+                  <span>Runbooks &amp; Knowledge</span>
                   <span class="tab-pill">{{ incidentService.currentReport()?.matched_runbooks?.length || 0 }}</span>
                 </button>
               </div>
@@ -513,12 +513,23 @@
 
             @if (activeWorkbenchTab() === 'RUNBOOKS') {
               <div class="tab-content-panel fade-in">
+                <div class="runbooks-tab-header">
+                  <div class="runbooks-topbar font-mono">
+                    <span class="section-bullet">●</span>
+                    <span>RETRIEVED INSTITUTIONAL RUNBOOKS</span>
+                    <span class="knowledge-synced-chip font-mono">KNOWLEDGE BASE SYNCED</span>
+                  </div>
+                  <button class="btn-add-runbook font-mono" (click)="openAddRunbookModal()" type="button" title="Add Runbook">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Add Runbook</span>
+                  </button>
+                </div>
+
                 @if (incidentService.currentReport(); as report) {
                   <div class="runbooks-tab-body">
-                    <div class="runbooks-topbar font-mono">
-                      <span class="section-bullet">●</span>
-                      <span>RETRIEVED INSTITUTIONAL RUNBOOKS</span>
-                    </div>
 
                     <div class="runbooks-cards-grid">
                       @for (rb of report.matched_runbooks; track rb.title) {
@@ -626,9 +637,9 @@
               <span class="drawer-section-title font-mono">ACTIONABLE CLI COMMANDS</span>
               <div class="drawer-commands-list">
                 @for (cmd of content.commands; track cmd) {
-                  <div class="drawer-cmd-box" (click)="copyCommand(cmd, $event)">
+                  <div class="drawer-cmd-box sop-command-box" (click)="copyCommand(cmd, $event)">
                     <span class="drawer-cmd-prompt font-mono">$</span>
-                    <code class="drawer-cmd-code font-mono">{{ cmd }}</code>
+                    <code class="drawer-cmd-code command-snippet font-mono">{{ cmd }}</code>
                     <button class="btn-copy-drawer font-mono">Copy</button>
                   </div>
                 }
@@ -900,6 +911,127 @@
                   <polygon points="5 3 19 12 5 21 5 3" />
                 </svg>
                 <span>Start Investigation</span>
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Index New Runbook Modal -->
+  @if (isAddRunbookModalOpen()) {
+    <div class="modal-backdrop" (click)="closeAddRunbookModal()">
+      <div class="runbook-modal-window industrial-panel" (click)="$event.stopPropagation()">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <div class="modal-title-area">
+            <div class="modal-badge font-mono">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+              </svg>
+              <span>KNOWLEDGE BASE INGESTION</span>
+            </div>
+            <h2 class="modal-heading">Index SRE Runbook / Post-Mortem</h2>
+            <p class="modal-sub">Document standard operating procedures or past outages. Zero500 will automatically compute vector embeddings for live incident retrieval.</p>
+          </div>
+          <button class="modal-close-btn" (click)="closeAddRunbookModal()" title="Close (Esc)">&times;</button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="modal-body runbook-modal-body">
+          <!-- Row 1: Full-Width Title Input -->
+          <div class="form-group full-width">
+            <label class="form-label font-mono">Title *</label>
+            <input
+              type="text"
+              class="form-input font-mono"
+              placeholder="e.g. Runbook: Kafka Consumer Lag &amp; Offset Commit Triage"
+              [ngModel]="runbookTitle()"
+              (ngModelChange)="runbookTitle.set($event)"
+            />
+          </div>
+
+          <!-- Row 2: 2 Columns: Target Service and Document Type -->
+          <div class="form-row-2col">
+            <div class="form-group">
+              <label class="form-label font-mono">Target Service *</label>
+              <input
+                type="text"
+                class="form-input font-mono"
+                placeholder="e.g. order-pipeline"
+                [ngModel]="runbookService()"
+                (ngModelChange)="runbookService.set($event)"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label font-mono">Document Type *</label>
+              <div class="doctype-selector-bar">
+                <button
+                  type="button"
+                  class="doctype-opt-btn font-mono"
+                  [class.active]="runbookDocType() === 'RUNBOOK'"
+                  (click)="runbookDocType.set('RUNBOOK')"
+                >
+                  <span class="doc-icon">📘</span>
+                  <span>RUNBOOK</span>
+                </button>
+                <button
+                  type="button"
+                  class="doctype-opt-btn font-mono"
+                  [class.active]="runbookDocType() === 'PAST_POSTMORTEM'"
+                  (click)="runbookDocType.set('PAST_POSTMORTEM')"
+                >
+                  <span class="doc-icon">📜</span>
+                  <span>PAST_POSTMORTEM</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: Content / SOP Mitigation Guide -->
+          <div class="form-group">
+            <div class="label-row">
+              <label class="form-label font-mono">Content / SOP Mitigation Guide *</label>
+              <span class="label-helper font-mono">Vectorized for semantic incident retrieval</span>
+            </div>
+            <textarea
+              class="form-textarea font-mono"
+              rows="8"
+              placeholder="Document symptoms, diagnostic queries (e.g. SQL, kubectl), and exact step-by-step mitigation commands..."
+              [ngModel]="runbookContent()"
+              (ngModelChange)="runbookContent.set($event)"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Footer Actions (Left: Clear; Right: Cancel & Save & Index Runbook) -->
+        <div class="modal-footer runbook-modal-footer">
+          <div class="footer-left">
+            <button class="btn-clear-all font-mono" (click)="clearRunbookForm()" type="button" title="Clear all fields">
+              Clear
+            </button>
+          </div>
+          <div class="footer-right">
+            <button class="btn-cancel font-mono" (click)="closeAddRunbookModal()" type="button">
+              Cancel
+            </button>
+            <button
+              class="btn-start-investigation font-mono"
+              (click)="submitRunbook()"
+              [disabled]="isIndexingRunbook() || !runbookTitle().trim() || !runbookService().trim() || !runbookContent().trim()"
+              type="button"
+            >
+              @if (isIndexingRunbook()) {
+                <div class="spinner-sm"></div>
+                <span>Indexing...</span>
+              } @else {
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                <span>Save &amp; Index Runbook</span>
               }
             </button>
           </div>

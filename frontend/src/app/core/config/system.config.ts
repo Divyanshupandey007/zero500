@@ -12,7 +12,7 @@ const isLocalHost=typeof window!=='undefined' && (window.location.hostname==='lo
 export const DEFAULT_SYSTEM_CONFIG: SystemMetadata = {
   engineName: 'RootLens Engine',
   activeModel: 'Autonomous SRE Agent',
-  vectorStore: 'Neon pgvector',
+  vectorStore: 'Knowledge Base Index',
   backendVersion: 'v0.3.0',
   status: 'HEALTHY',
   apiUrl: isLocalHost

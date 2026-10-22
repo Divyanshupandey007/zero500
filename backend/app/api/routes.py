@@ -1,3 +1,4 @@
+from app.models.runbook import CreateRunbook
 from fastapi import APIRouter,HTTPException,Request
 from typing import List
 from slowapi import Limiter
@@ -32,6 +33,20 @@ def health_check():
             "status":"degraded",
             "error":str(e)
         }
+
+@router.post("/runbooks",tags=["Knowledge"])
+def create_runbook(payload:CreateRunbook):
+    """Index a new runbook or historical post-mortem into DB"""
+    try:
+        new_id=vector_store.add_runbook(
+            title=payload.title,
+            service=payload.service,
+            doc_type=payload.doc_type,
+            content=payload.content
+        )
+        return {"id":new_id,"title":payload.title,"status":"indexed"}
+    except Exception as e:
+        raise HTTPException(status_code=500,detail=f"Failed to index runbook: {str(e)}")
 
 @router.get("/runbooks/search", tags=["Knowledge"])
 def search_runbooks(query: str, limit: int = 2):

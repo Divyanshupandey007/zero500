@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { IncidentService } from './services/incident.service';
+import { IncidentService, RunbookCreate } from './services/incident.service';
 import {
   Severity,
   LogLevel,
@@ -76,6 +76,14 @@ export class AppComponent implements OnInit {
   public readonly investigationService = signal<string>('');
   public readonly investigationSeverity = signal<Severity>('CRITICAL');
   public readonly investigationRawLogs = signal<string>('');
+
+  // Index New Runbook Form Signals
+  public readonly isAddRunbookModalOpen = signal<boolean>(false);
+  public readonly isIndexingRunbook = signal<boolean>(false);
+  public readonly runbookTitle = signal<string>('');
+  public readonly runbookService = signal<string>('');
+  public readonly runbookDocType = signal<'RUNBOOK' | 'PAST_POSTMORTEM'>('RUNBOOK');
+  public readonly runbookContent = signal<string>('');
 
   public readonly isDeepAnalysisOpen = signal<boolean>(false);
   public readonly activeRunbook = signal<MatchedRunbook | null>(null);
@@ -334,10 +342,28 @@ export class AppComponent implements OnInit {
     }
 
     if (report.suspected_root_cause) {
-      const summary = report.suspected_root_cause.length > 70
-        ? report.suspected_root_cause.slice(0, 70) + '...'
-        : report.suspected_root_cause;
-      return `${incident.service} ➔ ${summary}`;
+      let cause = report.suspected_root_cause.trim();
+      const service = incident.service?.trim() || '';
+
+      if (service) {
+        const escaped = service.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const prefixRegex = new RegExp(`^${escaped}(?:\\s*(?:➔|->|:|–|-|triggered failure:?)\\s*|\\s+|$)`, 'i');
+
+        if (prefixRegex.test(cause)) {
+          const remainder = cause.replace(prefixRegex, '').trim();
+          if (!remainder) {
+            return `${service} ➔ Root Anomaly Identified`;
+          }
+          if (/^[\w-]+\s*➔/i.test(cause)) {
+            return cause.length > 70 ? cause.slice(0, 70) + '...' : cause;
+          }
+          const truncatedRemainder = remainder.length > 70 ? remainder.slice(0, 70) + '...' : remainder;
+          return `${service} ➔ ${truncatedRemainder}`;
+        }
+      }
+
+      const summary = cause.length > 70 ? cause.slice(0, 70) + '...' : cause;
+      return `${service} ➔ ${summary}`;
     }
 
     return `${incident.service} ➔ Root Anomaly Identified`;
@@ -493,6 +519,93 @@ export class AppComponent implements OnInit {
     this.investigationSeverity.set('CRITICAL');
   }
 
+  public openAddRunbookModal(): void {
+    this.clearRunbookForm();
+    this.isAddRunbookModalOpen.set(true);
+  }
+
+  public closeAddRunbookModal(): void {
+    this.isAddRunbookModalOpen.set(false);
+  }
+
+  public clearRunbookForm(): void {
+    this.runbookTitle.set('');
+    this.runbookService.set('');
+    this.runbookDocType.set('RUNBOOK');
+    this.runbookContent.set('');
+  }
+
+  public submitRunbook(): void {
+    const title = this.runbookTitle().trim();
+    const service = this.runbookService().trim();
+    const doc_type = this.runbookDocType();
+    const content = this.runbookContent().trim();
+
+    if (!title || !service || !content) {
+      return;
+    }
+
+    this.isIndexingRunbook.set(true);
+
+    const payload: RunbookCreate = {
+      title,
+      service,
+      doc_type,
+      content
+    };
+
+    this.incidentService.createRunbook(payload).subscribe({
+      next: (res) => {
+        this.isIndexingRunbook.set(false);
+        this.closeAddRunbookModal();
+        this.clearRunbookForm();
+        this.showToast('Runbook successfully indexed into knowledge base');
+
+        // Cache locally for immediate drawer viewing
+        const lines = content.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+        const commands = lines
+          .filter((l) => l.startsWith('$') || l.startsWith('kubectl') || l.startsWith('helm') || l.startsWith('curl') || l.startsWith('psql'))
+          .map((l) => l.replace(/^\$\s*/, ''));
+        const triageSteps = lines
+          .filter((l) => !commands.includes(l) && !l.startsWith('#'))
+          .slice(0, 5);
+
+        this.runbookContents[title] = {
+          docType: doc_type,
+          summary: lines[0] || 'Standard operating procedure matching active incident symptoms.',
+          triageSteps: triageSteps.length > 0 ? triageSteps : ['Follow standard incident mitigation procedure.'],
+          commands: commands.length > 0 ? commands : ['kubectl get pods -n production']
+        };
+
+        // If the current incident has a report, dynamically add this runbook so it appears in the tab
+        const currentRep = this.incidentService.currentReport();
+        const currentInc = this.incidentService.selectedIncident();
+        if (currentRep && currentInc) {
+          const updatedRunbooks = [
+            {
+              title,
+              doc_type,
+              similarity_score: 0.965
+            },
+            ...(currentRep.matched_runbooks || []).filter((rb) => rb.title !== title)
+          ];
+          this.incidentService.investigationReports.update((prev) => ({
+            ...prev,
+            [currentInc.id]: {
+              ...currentRep,
+              matched_runbooks: updatedRunbooks
+            }
+          }));
+        }
+      },
+      error: (err) => {
+        this.isIndexingRunbook.set(false);
+        console.error('Failed to index runbook:', err);
+        this.showToast('Failed to save runbook to database');
+      }
+    });
+  }
+
 
   public submitInvestigation(): void {
     const title = this.investigationTitle().trim() || 'Spike in 502 Bad Gateway errors on auth proxy';
@@ -597,7 +710,9 @@ export class AppComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   public handleEscape(): void {
-    if (this.isInvestigationModalOpen()) {
+    if (this.isAddRunbookModalOpen()) {
+      this.closeAddRunbookModal();
+    } else if (this.isInvestigationModalOpen()) {
       this.closeInvestigationModal();
     } else if (this.activeRunbook()) {
       this.closeRunbookDrawer();

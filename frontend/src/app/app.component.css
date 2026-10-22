@@ -998,10 +998,12 @@
   color: #64748B;
 }
 
-.causal-steps-wrap {
+.causal-steps-wrap,
+.causal-flow-diagram {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 1.5rem;
   width: 100%;
   flex-wrap: wrap;
 }
@@ -1164,6 +1166,7 @@
   justify-content: center;
   width: 20px;
   flex-shrink: 0;
+  align-self: center;
 }
 
 .arrow-svg {
@@ -1746,6 +1749,15 @@
   gap: 14px;
 }
 
+.runbooks-tab-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(10, 11, 14, 0.4);
+}
+
 .runbooks-topbar {
   display: flex;
   align-items: center;
@@ -1754,6 +1766,41 @@
   font-weight: 700;
   color: #94A3B8;
   letter-spacing: 0.06em;
+}
+
+.knowledge-synced-chip,
+.pgvector-live-chip {
+  font-size: 9px;
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 1.5px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.btn-add-runbook {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #3F3F46;
+  background: rgba(39, 39, 42, 0.8);
+  color: #E4E4E7;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.btn-add-runbook:hover {
+  background: #3F3F46;
+  color: #FFFFFF;
+  border-color: #52525B;
+  transform: translateY(-1px);
 }
 
 .db-source {
@@ -2060,7 +2107,8 @@
   gap: 6px;
 }
 
-.drawer-cmd-box {
+.drawer-cmd-box,
+.sop-command-box {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2070,9 +2118,11 @@
   border: 1px solid var(--border-subtle);
   cursor: pointer;
   transition: all 0.12s;
+  max-width: 100%;
 }
 
-.drawer-cmd-box:hover {
+.drawer-cmd-box:hover,
+.sop-command-box:hover {
   background: #141720;
   border-color: #38BDF8;
 }
@@ -2080,15 +2130,29 @@
 .drawer-cmd-prompt {
   color: #10B981;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
-.drawer-cmd-code {
+.drawer-cmd-code,
+.command-snippet {
   flex: 1;
+  min-width: 0;
   font-size: 10px;
   color: #F1F5F9;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-x: auto;
+  text-overflow: clip;
+}
+
+.drawer-cmd-code::-webkit-scrollbar,
+.command-snippet::-webkit-scrollbar {
+  height: 4px;
+}
+
+.drawer-cmd-code::-webkit-scrollbar-thumb,
+.command-snippet::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 2px;
 }
 
 .btn-copy-drawer {
@@ -2098,6 +2162,7 @@
   border: 1px solid var(--border-subtle);
   color: #94A3B8;
   border-radius: 2px;
+  flex-shrink: 0;
 }
 
 .drawer-footer {
@@ -2819,6 +2884,82 @@
   animation: spin 0.8s linear infinite;
 }
 
+/* =========================================================================
+   Index SRE Runbook / Post-Mortem Modal Window
+   ========================================================================= */
+.runbook-modal-window {
+  width: 680px;
+  max-width: 95vw;
+  max-height: 88vh;
+  background: #0E1015;
+  border: 1px solid var(--border-bright);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.85);
+  animation: fadeIn 0.18s ease-out;
+  overflow: hidden;
+}
+
+.runbook-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.runbook-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: #090A0D;
+}
+
+.doctype-selector-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.doctype-opt-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 6px;
+  height: 35px;
+  box-sizing: border-box;
+  background: #0A0B0E;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  color: #94A3B8;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.doctype-opt-btn:hover {
+  background: #14171E;
+  color: #F1F5F9;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.doctype-opt-btn.active {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #7DD3FC;
+}
+
+.doc-icon {
+  font-size: 12px;
+}
+
 /* Responsive Modal Adjustments for Zero Horizontal Scroll */
 @media (max-width: 680px) {
   .form-row-2col {
@@ -2827,5 +2968,8 @@
   }
   .severity-selector-bar {
     grid-template-columns: repeat(2, 1fr);
+  }
+  .doctype-selector-bar {
+    grid-template-columns: 1fr;
   }
 }

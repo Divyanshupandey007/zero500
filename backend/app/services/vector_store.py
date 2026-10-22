@@ -13,6 +13,24 @@ class VectorStore:
             raise ValueError("GEMEINI_API_KEY is not set in .env")
         self.gemini_client=genai.Client(api_key=settings.GEMINI_API_KEY)
 
+    def add_runbook(self,title:str,service:str,doc_type:str,content:str)->int:
+        """
+        Embeds the document text and persists it into the runbooks table.
+        Returns the newly created database ID.
+        """
+        embedding=self.get_embedding(f"{title}\n{content}")
+        with self.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                INSERT INTO runbooks(title,service,doc_type,content,embedding)
+                VALUES(%s,%s,%s,%s,%s)
+                RETURNING id;
+                """,(title,service,doc_type,content,embedding))
+
+                new_id=cur.fetchone()[0]
+                conn.commit()
+                return new_id
+
     def get_connection(self):
         """Open connection and register the pgvector type handler"""
         conn=psycopg.connect(settings.DATABASE_URL)

@@ -10,6 +10,13 @@ import {
 } from '../models/incident.model';
 import { SystemMetadata, DEFAULT_SYSTEM_CONFIG } from '../core/config/system.config';
 
+export interface RunbookCreate {
+  title: string;
+  service: string;
+  doc_type: 'RUNBOOK' | 'PAST_POSTMORTEM';
+  content: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -621,6 +628,16 @@ export class IncidentService {
   public selectIncident(incident: IncidentSummary | string): void {
     const id = typeof incident === 'string' ? incident : incident.id;
     this.getIncidentById(id).subscribe();
+  }
+
+  /**
+   * POST /runbooks -> Index new Runbook / SOP into database
+   */
+  public createRunbook(payload: RunbookCreate): Observable<{ id: number; title: string; status: string }> {
+    return this.http.post<{ id: number; title: string; status: string }>(
+      `${this.systemConfig().apiUrl}/runbooks`,
+      payload
+    );
   }
 
   /**
