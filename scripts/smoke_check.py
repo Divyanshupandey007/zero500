@@ -134,8 +134,23 @@ def run_sanity_suite() -> int:
         log(f"5. AI Investigation failed: {data}", "FAIL")
         failures += 1
 
-    # 6. Rate Limiter Shield Verification
-    log("6. Testing Rate Limiter Shield (triggering rapid requests)...", "INFO")
+    # 6. Benchmark Evaluation Suite
+    log("6. Running Benchmark Harness (Evaluating 3 test cases)...", "INFO")
+    status, data = request("/evaluations/run", method="POST", timeout=300)
+    if status == 200 and data.get("retrieval_recall") is not None:
+        log(
+            f"6. Benchmark Passed: "
+            f"Recall={data.get('retrieval_recall') * 100:.0f}%, "
+            f"Faithfulness={data.get('average_faithfulness') * 100:.0f}%, "
+            f"Accuracy={data.get('average_diagnosis_accuracy') * 100:.0f}%.",
+            "PASS",
+        )
+    else:
+        log(f"6. Evaluation suite failed: {data}", "FAIL")
+        failures += 1
+
+    # 7. Rate Limiter Shield Verification
+    log("7. Testing Rate Limiter Shield (triggering rapid requests)...", "INFO")
     hit_429 = False
     for _ in range(6):
         status, _ = request("/incidents/INC-SMOKE-01/investigate", method="POST")
@@ -145,14 +160,14 @@ def run_sanity_suite() -> int:
         time.sleep(0.1)
 
     if hit_429:
-        log("6. Quota Shield Active: HTTP 429 received on quota threshold.", "PASS")
+        log("7. Quota Shield Active: HTTP 429 received on quota threshold.", "PASS")
     else:
-        log("6. Rate limiter warning: Did not hit 429 within 6 calls.", "FAIL")
+        log("7. Rate limiter warning: Did not hit 429 within 6 calls.", "FAIL")
         failures += 1
 
     print("=" * 60)
     if failures == 0:
-        log("🎉 ALL 6 SMOKE PROBES PASSED.", "PASS")
+        log("🎉 ALL 7 SMOKE PROBES PASSED.", "PASS")
         return 0
     log(f"⚠️ SMOKE PROBES FAILED: {failures} probe(s) failed.", "FAIL")
     return 1

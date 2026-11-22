@@ -69,6 +69,16 @@
     </div>
   </header>
 
+  @if (incidentService.isSimulatedMode() || incidentService.activeError()) {
+    <div class="connection-banner" role="alert" aria-live="polite">
+      <span class="banner-icon">⚠️</span>
+      <span class="banner-message font-mono">{{
+        incidentService.activeError() || 'Backend unreachable — waking up, retrying…'
+      }}</span>
+      <button class="btn-retry font-mono" (click)="retryConnection()">Retry Connection</button>
+    </div>
+  }
+
   <main class="main-split-container">
     <aside class="sidebar-drawer industrial-panel">
       <div class="sidebar-header">

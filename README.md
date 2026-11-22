@@ -9,7 +9,7 @@
 Turn noisy application telemetry into an evidence-backed root-cause investigation, relevant runbooks, and an actionable remediation playbook.
 
 <p>
-  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/<owner>/<repo>/ci.yml?label=CI" />
+  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Divyanshupandey007/zero500/ci.yml?label=CI" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" />
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
   <img alt="PostgreSQL and pgvector" src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white" />
@@ -138,7 +138,7 @@ flowchart TD
 | Repeat-request optimization | In-memory TTL cache | Cache investigations for five minutes |
 | Frontend | Angular, standalone components, Signals | Interactive incident workbench |
 | UI styling | Tailwind CSS, Obsidian/Charcoal theme | Responsive SRE dashboard |
-| Automated verification | `backend/sanity_check.py` | End-to-end sanity and UAT probes |
+| Automated verification | `scripts/smoke_check.py` | End-to-end sanity and UAT probes |
 
 ## Evaluation and UAT scorecard
 
@@ -150,7 +150,7 @@ The current ground-truth evaluation suite and the recorded UAT sign-off report t
 | Diagnosis accuracy (LLM-as-a-Judge) | **100%** | Semantic alignment between generated diagnoses and the verified engineering ground truth, as assessed by the configured judge |
 | Evidence faithfulness | **83%** | Whether statements in the report are supported by the retrieved evidence and raw telemetry |
 | End-to-end latency | **~5.0 s** | Approximate investigation response time for the evaluated scenarios; independent retrieval work is parallelized with Python `ThreadPoolExecutor` |
-| Automated sanity / UAT probes | **7/7 passed (100%)** | Result of the automated probes in `backend/sanity_check.py` for the recorded test run |
+| Automated sanity / UAT probes | **7/7 passed (100%)** | Result of the automated probes in `scripts/smoke_check.py` for the recorded test run |
 
 **How to interpret the numbers:** these are results for the current test suite, not guarantees of performance on every production incident. The diagnosis score uses an LLM-as-a-Judge and should be supplemented with human review as the evaluation set grows. Evidence faithfulness is not 100%; the system should be evaluated and improved on cases where the report is not fully supported. In the recorded suite, citations were checked against raw telemetry and no hallucinated timestamps or metrics were observed.
 
@@ -272,7 +272,7 @@ Open the local URL printed by the Angular development server, typically `http://
 Start the backend first, ensure the required environment variables and database are configured, then run this command from the repository root:
 
 ```bash
-python backend/sanity_check.py
+python scripts/smoke_check.py
 ```
 
 The recorded UAT run passed **7 out of 7 probes**. Re-run the script after changes to verify the current checkout; results can differ if configuration, quotas, database state, or model behavior changes.
@@ -326,15 +326,56 @@ curl "http://127.0.0.1:8000/api/v1/runbooks/search?query=database%20connection%2
 
 ```text
 zero500/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── backend/
 │   ├── app/
-│   │   └── data/
-│   │       └── seed_runbooks.py
-│   ├── sanity_check.py
-│   └── requirements.txt
+│   │   ├── api/
+│   │   │   └── routes.py
+│   │   ├── data/
+│   │   │   ├── chunking.py
+│   │   │   ├── eval_dataset.py
+│   │   │   ├── seed_runbooks.py
+│   │   │   └── synthetic.py
+│   │   ├── models/
+│   │   │   ├── evaluation.py
+│   │   │   ├── incident.py
+│   │   │   ├── investigation.py
+│   │   │   └── runbook.py
+│   │   ├── services/
+│   │   │   ├── evaluator.py
+│   │   │   ├── incident_repository.py
+│   │   │   ├── investigator.py
+│   │   │   └── vector_store.py
+│   │   ├── tests/
+│   │   │   ├── conftest.py
+│   │   │   ├── integration/
+│   │   │   └── unit/
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   ├── main.py
+│   │   ├── Dockerfile
+│   │   ├── pytest.ini
+│   │   ├── requirements.txt
+│   │   └── requirements-dev.txt
+├── docs/
+│   └── DESIGN_DECISIONS.md
 ├── frontend/
-├── UAT_SANITY_SIGN_OFF.md
-└── README.md
+│   ├── src/
+│   │   └── app/
+│   │       ├── core/config/system.config.ts
+│   │       ├── models/incident.model.ts
+│   │       ├── services/incident.service.ts
+│   │       └── app.component.{ts,html,css}
+│   ├── angular.json
+│   ├── package.json
+│   └── Dockerfile
+├── scripts/
+│   └── smoke_check.py
+├── docker-compose.yml
+├── README.md
+└── UAT_SANITY_SIGN_OFF.md
 ```
 
 This is a high-level map of the main project areas; individual modules may be added as the implementation evolves.

@@ -12,7 +12,7 @@
 
 A comprehensive automated backend validation and live end-to-end browser User Acceptance Test (UAT) were conducted on the Zero500 Autonomous Incident Investigation & RCA platform.
 
-All **7 automated backend probes** in `backend/sanity_check.py` passed with a **100% success rate**, verifying:
+All **7 automated backend probes** in `scripts/smoke_check.py` passed with a **100% success rate**, verifying:
 - FastAPI operational health and database connectivity.
 - Dynamic incident webhook ingestion into Neon PostgreSQL.
 - Read-after-write data integrity for incident logs and telemetry.
@@ -117,7 +117,7 @@ The live browser audit on `http://localhost:4200/` validated the following check
 3. **Parallelized Evaluation Suite**:
    - Refactored `EvaluationEngine.run_suite()` in `backend/app/services/evaluator.py` to evaluate test cases in parallel using `ThreadPoolExecutor(max_workers=3)`, reducing evaluation suite latency by ~65%.
 4. **Platform Encoding Resilience**:
-   - Added UTF-8 stdout reconfiguration in `backend/sanity_check.py` to safeguard execution in standard Windows console environments.
+   - Added UTF-8 stdout reconfiguration in `scripts/smoke_check.py` to safeguard execution in standard Windows console environments.
 
 ---
 

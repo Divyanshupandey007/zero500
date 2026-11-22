@@ -395,6 +395,12 @@ export class AppComponent implements OnInit {
     });
   }
 
+  public retryConnection(): void {
+    this.incidentService.clearError();
+    this.incidentService.checkHealth().subscribe();
+    this.loadIncidents();
+  }
+
   public selectIncident(id: string): void {
     this.incidentService.selectIncident(id);
     this.selectedCausalNode.set(null);
