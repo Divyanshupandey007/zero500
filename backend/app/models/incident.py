@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import List,Optional
 from datetime import datetime
 from enum import Enum
+
+from pydantic import BaseModel, Field
+
 
 class Severity(str,Enum):
     LOW="LOW"
@@ -20,7 +21,7 @@ class LogEntry(BaseModel):
     level:LogLevel
     service:str
     message:str
-    metadata: Optional[dict]=Field(default_factory=dict)
+    metadata: dict | None=Field(default_factory=dict)
 
 class IncidentSummary(BaseModel):
     id:str
@@ -32,5 +33,5 @@ class IncidentSummary(BaseModel):
 
 class IncidentDetail(IncidentSummary):
     description:str
-    logs:List[LogEntry]
+    logs:list[LogEntry]
     metrics_snapshot:dict

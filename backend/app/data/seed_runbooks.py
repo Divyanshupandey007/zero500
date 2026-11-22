@@ -46,26 +46,25 @@ def seed():
     print("Connecting to DB and initializing schema...")
     vector_store.init_db()
 
-    with vector_store.get_connection() as conn:
-        with conn.cursor() as cur:
-            #Check if alreadt seeded
-            cur.execute("SELECT COUNT(*) FROM runbooks;")
-            count=cur.fetchone()[0]
-            if count>0:
-                print(f"DB already contains {count} runbook entries. Skipping seed")
-                return
+    with vector_store.get_connection() as conn, conn.cursor() as cur:
+        #Check if alreadt seeded
+        cur.execute("SELECT COUNT(*) FROM runbooks;")
+        count=cur.fetchone()[0]
+        if count>0:
+            print(f"DB already contains {count} runbook entries. Skipping seed")
+            return
 
-            print("Generating embeddings and insert runbooks...")
-            for doc in RUNBOOKS_DATA:
-                print(f" Embedding doc: {doc['title']}...")
-                embedding=vector_store.get_embedding(f"{doc['title']}\n{doc['content']}")
-                cur.execute("""
+        print("Generating embeddings and insert runbooks...")
+        for doc in RUNBOOKS_DATA:
+            print(f" Embedding doc: {doc['title']}...")
+            embedding=vector_store.get_embedding(f"{doc['title']}\n{doc['content']}")
+            cur.execute("""
                     INSERT INTO runbooks (title,service,doc_type,content,embedding)
                     VALUES (%s,%s,%s,%s,%s);
 """,(doc['title'],doc['service'],doc['doc_type'],doc['content'],embedding))
 
-            conn.commit()
-            print("Successfully seeded runbooks into pgvector!")
+        conn.commit()
+        print("Successfully seeded runbooks into pgvector!")
 
 if __name__=="__main__":
     seed()

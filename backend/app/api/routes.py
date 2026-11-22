@@ -1,18 +1,17 @@
-from app.models.runbook import CreateRunbook
-from fastapi import APIRouter,HTTPException,Request
-from typing import List
+
+from fastapi import APIRouter, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.config import settings
-from app.models.incident import IncidentSummary,IncidentDetail
-from app.data.synthetic import SYNTHETIC_INCIDENTS
-from app.models.investigation import InvestigationReport
-from app.services.investigator import investigator_service
-from app.services.incident_repository import incident_repo
-from app.services.vector_store import vector_store
 from app.models.evaluation import EvaluationSuiteReport
+from app.models.incident import IncidentDetail, IncidentSummary
+from app.models.investigation import InvestigationReport
+from app.models.runbook import CreateRunbook
 from app.services.evaluator import evaluation_engine
+from app.services.incident_repository import incident_repo
+from app.services.investigator import investigator_service
+from app.services.vector_store import vector_store
 
 limiter=Limiter(key_func=get_remote_address)
 router=APIRouter(prefix="/api/v1")
@@ -20,9 +19,8 @@ router=APIRouter(prefix="/api/v1")
 @router.get("/health",tags=["System"])
 def health_check():
     try:
-        with incident_repo.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1;")
+        with incident_repo.get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1;")
         return {
             "status":"healthy",
             "database":"connected",
@@ -46,7 +44,7 @@ def create_runbook(payload:CreateRunbook):
         )
         return {"id":new_id,"title":payload.title,"status":"indexed"}
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Failed to index runbook: {str(e)}")
+        raise HTTPException(status_code=500,detail=f"Failed to index runbook: {e!s}")
 
 @router.get("/runbooks/search", tags=["Knowledge"])
 def search_runbooks(query: str, limit: int = 2):
@@ -54,9 +52,9 @@ def search_runbooks(query: str, limit: int = 2):
         matches = vector_store.search_similar_docs(query, limit=limit)
         return {"matches": matches}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Search failed: {e!s}")
 
-@router.get("/incidents",response_model=List[IncidentSummary],tags=["Incidents"])
+@router.get("/incidents",response_model=list[IncidentSummary],tags=["Incidents"])
 def list_incidents():
     return incident_repo.list_all_summaries()
 
@@ -84,7 +82,7 @@ def ingest_incident(incident:IncidentDetail):
             status=incident.status
         )
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Ingestion failed: {str(e)}")
+        raise HTTPException(status_code=500,detail=f"Ingestion failed: {e!s}")
 
 @router.post("/incidents/{incident_id}/investigate",response_model=InvestigationReport,tags=["Investigation"])
 @limiter.limit("5/minute")
@@ -96,7 +94,7 @@ def investigate_incident(request:Request,incident_id:str):
     try:
         return investigator_service.investigate(inc)
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Investigation failed: {str(e)}")
+        raise HTTPException(status_code=500,detail=f"Investigation failed: {e!s}")
 
 @router.post("/evaluations/run",response_model=EvaluationSuiteReport,tags=["Evaluation"])
 @limiter.limit("2/minute")
@@ -104,4 +102,4 @@ def run_evaluation_suite(request:Request):
     try:
         return evaluation_engine.run_suite()
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Evaluation failed: {str(e)}")
+        raise HTTPException(status_code=500,detail=f"Evaluation failed: {e!s}")

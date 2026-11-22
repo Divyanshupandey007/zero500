@@ -1,10 +1,17 @@
+import logging
 import time
+
 from google import genai
 from google.genai import types
+
 from app.config import settings
+from app.logging import get_correlation_id
 from app.models.incident import IncidentDetail
-from app.models.investigation import InvestigationReport,MatchedRunbook
+from app.models.investigation import InvestigationReport, MatchedRunbook
 from app.services.vector_store import vector_store
+
+logger = logging.getLogger("zero500.investigator")
+
 
 class IncidentInvestigator:
     def __init__(self):
@@ -28,11 +35,10 @@ class IncidentInvestigator:
                 return cached_report
 
         # Retrieval step
+        retrieval_start = time.perf_counter()
         retrieval_query=self.build_retrieval_query(incident)
         retrieved_docs=vector_store.search_similar_docs(retrieval_query,limit=2)
-
-        runbooks_context="\n\n".join([
-            f"--- [Retrieved {doc['doc_type']}: {doc['title']} (Similarity): {doc['similarity_score']})] ---\n{doc['content']}" for doc in retrieved_docs])
+        retrieval_latency = round((time.perf_counter() - retrieval_start) * 1000, 2)
 
         # Telemetry preparation
         logs_text="\n".join([
@@ -65,6 +71,7 @@ Application Logs:{logs_text}
 Perform a deep investigation and return a structured incident report.
 """
 
+        llm_start = time.perf_counter()
         response=self.client.models.generate_content(
             model=settings.GEMINI_MODEL,
             contents=user_prompt,
@@ -75,6 +82,7 @@ Perform a deep investigation and return a structured incident report.
                 temperature=0.1,
             ),
         )
+        llm_latency = round((time.perf_counter() - llm_start) * 1000, 2)
 
         report:InvestigationReport= response.parsed
 
@@ -86,6 +94,18 @@ Perform a deep investigation and return a structured incident report.
             )
             for doc in retrieved_docs
         ]
+
+        logger.info(
+            "investigation completed",
+            extra={
+                "incident_id": incident.id,
+                "correlation_id": get_correlation_id(),
+                "retrieval_latency": retrieval_latency,
+                "llm_latency": llm_latency,
+                "retrieved_doc_ids": [doc.get("id") for doc in retrieved_docs],
+                "confidence_score": report.confidence_score,
+            },
+        )
 
         self._cache[cache_key] = (time.time(), report)
         return report

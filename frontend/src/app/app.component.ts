@@ -1,11 +1,4 @@
-import {
-  Component,
-  OnInit,
-  inject,
-  signal,
-  computed,
-  HostListener
-} from '@angular/core';
+import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IncidentService, RunbookCreate } from './services/incident.service';
@@ -15,7 +8,7 @@ import {
   ActionPriority,
   MatchedRunbook,
   LogEntry,
-  IncidentDetail
+  IncidentDetail,
 } from './models/incident.model';
 import { SystemMetadata } from './core/config/system.config';
 
@@ -54,12 +47,14 @@ export interface LogDensityTick {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  styleUrls: ['./app.component.css'],
 })
 export class AppComponent implements OnInit {
   public readonly incidentService = inject(IncidentService);
 
-  public readonly systemConfig = computed<SystemMetadata>(() => this.incidentService.systemConfig());
+  public readonly systemConfig = computed<SystemMetadata>(() =>
+    this.incidentService.systemConfig(),
+  );
 
   public readonly searchQuery = signal<string>('');
   public readonly severityFilter = signal<string>('ALL');
@@ -96,64 +91,76 @@ export class AppComponent implements OnInit {
 
   public readonly severities: ('ALL' | Severity)[] = ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
 
-  public readonly runbookContents: Record<string, { summary: string; triageSteps: string[]; commands: string[]; docType: string }> = {
+  public readonly runbookContents: Record<
+    string,
+    { summary: string; triageSteps: string[]; commands: string[]; docType: string }
+  > = {
     'Runbook: Checkout Service NullPointer & Auth Failure Triage': {
       docType: 'RUNBOOK',
-      summary: 'Standard Operating Procedure for handling NullPointerExceptions in checkout pipeline post-deployment.',
+      summary:
+        'Standard Operating Procedure for handling NullPointerExceptions in checkout pipeline post-deployment.',
       triageSteps: [
         'Inspect if incoming HTTP session context contains required X-Tenant-ID headers.',
         'Check TenantInterceptor.preHandle() trace to verify session object instantiation.',
-        'If error rate exceeds 5% immediately after a deployment rollout, trigger automated rollback.'
+        'If error rate exceeds 5% immediately after a deployment rollout, trigger automated rollback.',
       ],
       commands: [
         'helm rollback checkout-service-prod',
         'kubectl logs -l app=checkout-service --tail=100 -n production | grep -E "NullPointer|TenantInterceptor"',
-        'kubectl rollout status deployment/checkout-service -n production'
-      ]
+        'kubectl rollout status deployment/checkout-service -n production',
+      ],
     },
     'Post-Mortem: Q3 Deployment Interceptor Context Drop': {
       docType: 'PAST_POSTMORTEM',
-      summary: 'Historical post-mortem from Q3 incident where asynchronous filter ordering bypassed SecurityContextHolder.',
+      summary:
+        'Historical post-mortem from Q3 incident where asynchronous filter ordering bypassed SecurityContextHolder.',
       triageSteps: [
         'Validate FilterChain registration order in SecurityConfig.java.',
         'Ensure session propagation across async thread pool executors.',
-        'Verify Prometheus alert alert_checkout_error_rate_spike.'
+        'Verify Prometheus alert alert_checkout_error_rate_spike.',
       ],
       commands: [
         'git log -n 5 -p src/main/java/com/zero500/interceptor/TenantInterceptor.java',
-        'curl -s -o /dev/null -w "%{http_code}" https://api.zero500.internal/health'
-      ]
+        'curl -s -o /dev/null -w "%{http_code}" https://api.zero500.internal/health',
+      ],
     },
     'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services': {
       docType: 'RUNBOOK',
-      summary: 'Mitigation procedure for HikariCP database pool saturation and PostgreSQL connection starvation.',
+      summary:
+        'Mitigation procedure for HikariCP database pool saturation and PostgreSQL connection starvation.',
       triageSteps: [
         'Identify long-running or unindexed queries blocking Postgres connection worker slots.',
         'Terminate idle-in-transaction worker sessions holding locks > 30 seconds.',
-        'Scale up PgBouncer connection ceiling or gracefully cycle microservice pods.'
+        'Scale up PgBouncer connection ceiling or gracefully cycle microservice pods.',
       ],
       commands: [
-        "psql -d neondb -c \"SELECT pid, query, state, age(clock_timestamp(), query_start) FROM pg_stat_activity WHERE state != 'idle';\"",
+        'psql -d neondb -c "SELECT pid, query, state, age(clock_timestamp(), query_start) FROM pg_stat_activity WHERE state != \'idle\';"',
         "psql -d neondb -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE state = 'idle in transaction' AND age(clock_timestamp(), state_change) > interval '30 seconds';\"",
-        'kubectl rollout restart deployment/users-service -n production'
-      ]
+        'kubectl rollout restart deployment/users-service -n production',
+      ],
     },
     'Post-Mortem: Q3 Stripe Gateway Latency Outage': {
       docType: 'PAST_POSTMORTEM',
-      summary: 'Analysis of downstream third-party payment gateway latency spike and circuit breaker configuration.',
+      summary:
+        'Analysis of downstream third-party payment gateway latency spike and circuit breaker configuration.',
       triageSteps: [
         'Confirm upstream provider operational status at status.stripe.com.',
         'Verify circuit breaker threshold state transition from CLOSED to HALF_OPEN.',
-        'Temporarily route payment retry queue to secondary backup gateway provider.'
+        'Temporarily route payment retry queue to secondary backup gateway provider.',
       ],
       commands: [
         'curl -s https://status.stripe.com/current',
-        'kubectl exec -it deploy/payment-gateway-proxy -- curl -s localhost:8080/actuator/circuitbreakers'
-      ]
-    }
+        'kubectl exec -it deploy/payment-gateway-proxy -- curl -s localhost:8080/actuator/circuitbreakers',
+      ],
+    },
   };
 
-  public getRunbookDetail(title: string): { summary: string; triageSteps: string[]; commands: string[]; docType: string } {
+  public getRunbookDetail(title: string): {
+    summary: string;
+    triageSteps: string[];
+    commands: string[];
+    docType: string;
+  } {
     if (this.runbookContents[title]) {
       return this.runbookContents[title];
     }
@@ -164,13 +171,13 @@ export class AppComponent implements OnInit {
       triageSteps: [
         `Inspect ingress proxy routing tables and upstream health checks for ${service}.`,
         `Verify container pod metrics, cgroup limits, and restart exit codes via kubectl.`,
-        `If error rate persists above SLA threshold, initiate graceful traffic shed or rollback.`
+        `If error rate persists above SLA threshold, initiate graceful traffic shed or rollback.`,
       ],
       commands: [
         `kubectl logs -l app=${service} --tail=100 -n production | grep -E "ERROR|FATAL"`,
         `kubectl top pods -l app=${service} -n production --containers`,
-        `kubectl rollout status deployment/${service} -n production`
-      ]
+        `kubectl rollout status deployment/${service} -n production`,
+      ],
     };
   }
 
@@ -217,7 +224,7 @@ export class AppComponent implements OnInit {
     const count = selected.logs.length;
     return selected.logs.map((log, idx) => ({
       positionPct: Math.round(((idx + 0.5) / count) * 100),
-      level: log.level
+      level: log.level,
     }));
   });
 
@@ -265,7 +272,7 @@ export class AppComponent implements OnInit {
         sparklineArea: areaPath,
         saturationPct,
         isAlert,
-        unit
+        unit,
       };
     });
   });
@@ -305,7 +312,7 @@ export class AppComponent implements OnInit {
         icon,
         detail: ev.detail,
         badge,
-        rawLogSnippet: this.findMatchingLogSnippet(ev.source, incident.logs) || ev.detail
+        rawLogSnippet: this.findMatchingLogSnippet(ev.source, incident.logs) || ev.detail,
       };
     });
   });
@@ -347,7 +354,10 @@ export class AppComponent implements OnInit {
 
       if (service) {
         const escaped = service.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const prefixRegex = new RegExp(`^${escaped}(?:\\s*(?:➔|->|:|–|-|triggered failure:?)\\s*|\\s+|$)`, 'i');
+        const prefixRegex = new RegExp(
+          `^${escaped}(?:\\s*(?:➔|->|:|–|-|triggered failure:?)\\s*|\\s+|$)`,
+          'i',
+        );
 
         if (prefixRegex.test(cause)) {
           const remainder = cause.replace(prefixRegex, '').trim();
@@ -357,7 +367,8 @@ export class AppComponent implements OnInit {
           if (/^[\w-]+\s*➔/i.test(cause)) {
             return cause.length > 70 ? cause.slice(0, 70) + '...' : cause;
           }
-          const truncatedRemainder = remainder.length > 70 ? remainder.slice(0, 70) + '...' : remainder;
+          const truncatedRemainder =
+            remainder.length > 70 ? remainder.slice(0, 70) + '...' : remainder;
           return `${service} ➔ ${truncatedRemainder}`;
         }
       }
@@ -380,8 +391,14 @@ export class AppComponent implements OnInit {
         if (list && list.length > 0 && !this.incidentService.selectedIncident()) {
           this.selectIncident(list[0].id);
         }
-      }
+      },
     });
+  }
+
+  public retryConnection(): void {
+    this.incidentService.clearError();
+    this.incidentService.checkHealth().subscribe();
+    this.loadIncidents();
   }
 
   public selectIncident(id: string): void {
@@ -411,7 +428,7 @@ export class AppComponent implements OnInit {
             reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }, 120);
-      }
+      },
     });
   }
 
@@ -457,7 +474,7 @@ export class AppComponent implements OnInit {
   public toggleTestCaseExpand(incidentId: string): void {
     this.expandedTestCases.update((prev) => ({
       ...prev,
-      [incidentId]: !prev[incidentId]
+      [incidentId]: !prev[incidentId],
     }));
   }
 
@@ -468,7 +485,7 @@ export class AppComponent implements OnInit {
   public toggleRemediationStep(action: string): void {
     this.completedSteps.update((prev) => ({
       ...prev,
-      [action]: !prev[action]
+      [action]: !prev[action],
     }));
   }
 
@@ -551,7 +568,7 @@ export class AppComponent implements OnInit {
       title,
       service,
       doc_type,
-      content
+      content,
     };
 
     this.incidentService.createRunbook(payload).subscribe({
@@ -562,9 +579,19 @@ export class AppComponent implements OnInit {
         this.showToast('Runbook successfully indexed into knowledge base');
 
         // Cache locally for immediate drawer viewing
-        const lines = content.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+        const lines = content
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
         const commands = lines
-          .filter((l) => l.startsWith('$') || l.startsWith('kubectl') || l.startsWith('helm') || l.startsWith('curl') || l.startsWith('psql'))
+          .filter(
+            (l) =>
+              l.startsWith('$') ||
+              l.startsWith('kubectl') ||
+              l.startsWith('helm') ||
+              l.startsWith('curl') ||
+              l.startsWith('psql'),
+          )
           .map((l) => l.replace(/^\$\s*/, ''));
         const triageSteps = lines
           .filter((l) => !commands.includes(l) && !l.startsWith('#'))
@@ -573,8 +600,11 @@ export class AppComponent implements OnInit {
         this.runbookContents[title] = {
           docType: doc_type,
           summary: lines[0] || 'Standard operating procedure matching active incident symptoms.',
-          triageSteps: triageSteps.length > 0 ? triageSteps : ['Follow standard incident mitigation procedure.'],
-          commands: commands.length > 0 ? commands : ['kubectl get pods -n production']
+          triageSteps:
+            triageSteps.length > 0
+              ? triageSteps
+              : ['Follow standard incident mitigation procedure.'],
+          commands: commands.length > 0 ? commands : ['kubectl get pods -n production'],
         };
 
         // If the current incident has a report, dynamically add this runbook so it appears in the tab
@@ -585,16 +615,16 @@ export class AppComponent implements OnInit {
             {
               title,
               doc_type,
-              similarity_score: 0.965
+              similarity_score: 0.965,
             },
-            ...(currentRep.matched_runbooks || []).filter((rb) => rb.title !== title)
+            ...(currentRep.matched_runbooks || []).filter((rb) => rb.title !== title),
           ];
           this.incidentService.investigationReports.update((prev) => ({
             ...prev,
             [currentInc.id]: {
               ...currentRep,
-              matched_runbooks: updatedRunbooks
-            }
+              matched_runbooks: updatedRunbooks,
+            },
           }));
         }
       },
@@ -602,13 +632,13 @@ export class AppComponent implements OnInit {
         this.isIndexingRunbook.set(false);
         console.error('Failed to index runbook:', err);
         this.showToast('Failed to save runbook to database');
-      }
+      },
     });
   }
 
-
   public submitInvestigation(): void {
-    const title = this.investigationTitle().trim() || 'Spike in 502 Bad Gateway errors on auth proxy';
+    const title =
+      this.investigationTitle().trim() || 'Spike in 502 Bad Gateway errors on auth proxy';
     const service = this.investigationService().trim() || 'auth-proxy';
     const severity = this.investigationSeverity();
     const rawLogs = this.investigationRawLogs().trim();
@@ -620,7 +650,10 @@ export class AppComponent implements OnInit {
 
     // 1. Parse submitted text into LogEntry records (auto-detect timestamps or use current UTC, auto-detect level ERROR/WARN/INFO)
     const lines = rawLogs
-      ? rawLogs.split('\n').map((l) => l.trim()).filter((l) => l.length > 0)
+      ? rawLogs
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0)
       : [`[ERROR] ${service}: Uncaught runtime exception causing service degradation`];
 
     const logs: LogEntry[] = lines.map((line, idx) => {
@@ -642,7 +675,9 @@ export class AppComponent implements OnInit {
       }
 
       // Check for timestamp at start of line
-      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/);
+      const timestampMatch = line.match(
+        /^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/,
+      );
       const timestamp = timestampMatch
         ? new Date(timestampMatch[1]).toISOString()
         : new Date(now - (lines.length - idx) * 15 * 1000).toISOString();
@@ -651,14 +686,17 @@ export class AppComponent implements OnInit {
       if (timestampMatch) {
         cleanMessage = cleanMessage.substring(timestampMatch[0].length).trim();
       }
-      cleanMessage = cleanMessage.replace(/^\[?(?:INFO|WARN|WARNING|ERROR|FATAL|DEBUG|CRITICAL)\]?\s*[:-]?\s*/i, '');
+      cleanMessage = cleanMessage.replace(
+        /^\[?(?:INFO|WARN|WARNING|ERROR|FATAL|DEBUG|CRITICAL)\]?\s*[:-]?\s*/i,
+        '',
+      );
       cleanMessage = cleanMessage.replace(new RegExp(`^${service}\\s*[:-]?\s*`, 'i'), '');
 
       return {
         timestamp,
         level,
         service,
-        message: cleanMessage || line
+        message: cleanMessage || line,
       };
     });
 
@@ -674,9 +712,9 @@ export class AppComponent implements OnInit {
         error_rate_percentage: severity === 'CRITICAL' ? 36.4 : severity === 'HIGH' ? 18.2 : 6.1,
         latency_p99_ms: severity === 'CRITICAL' ? 3200 : severity === 'HIGH' ? 1650 : 540,
         pod_restart_count: severity === 'CRITICAL' ? 4 : 0,
-        active_threads: 310
+        active_threads: 310,
       },
-      logs
+      logs,
     };
 
     // 2. Post to incidentService.ingestIncident()
@@ -695,7 +733,7 @@ export class AppComponent implements OnInit {
         this.selectIncident(incident.id);
         this.investigateIncident(incident.id);
         this.showToast(`Incident ${incident.id} registered for autonomous root-cause analysis`);
-      }
+      },
     });
   }
 
@@ -727,17 +765,17 @@ export class AppComponent implements OnInit {
     if (isAlert || key.includes('error') || key.includes('timeout') || key.includes('active')) {
       return {
         path: 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2',
-        areaPath: 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2 L 100,26 L 0,26 Z'
+        areaPath: 'M 0,22 Q 25,22 40,20 T 65,18 T 80,14 L 100,2 L 100,26 L 0,26 Z',
       };
     } else if (key.includes('latency')) {
       return {
         path: 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4',
-        areaPath: 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4 L 100,26 L 0,26 Z'
+        areaPath: 'M 0,20 Q 30,21 55,17 T 80,12 L 100,4 L 100,26 L 0,26 Z',
       };
     }
     return {
       path: 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16',
-      areaPath: 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16 L 100,26 L 0,26 Z'
+      areaPath: 'M 0,16 Q 25,12 50,16 T 75,14 L 100,16 L 100,26 L 0,26 Z',
     };
   }
 
@@ -745,10 +783,13 @@ export class AppComponent implements OnInit {
     const textToAnalyze = (detail && detail.trim().length > 0 ? detail.trim() : source) || '';
 
     // Check if source is a generic log label (e.g. "payment-gw log [ERROR]" or "service log [WARN]")
-    const isGenericLogSource = !source || /log\s*\[(?:ERROR|WARN|FATAL|INFO|DEBUG|CRITICAL)\]/i.test(source);
+    const isGenericLogSource =
+      !source || /log\s*\[(?:ERROR|WARN|FATAL|INFO|DEBUG|CRITICAL)\]/i.test(source);
 
     // 1. Check for Exception class name in detail or source (e.g. ConnectionPoolTimeoutException, SocketTimeoutError)
-    const exceptionMatch = textToAnalyze.match(/\b([A-Z][a-zA-Z0-9]*(?:Exception|Error|Timeout|Fault|Failure|Starvation|Exhaustion|OOMKilled))\b/);
+    const exceptionMatch = textToAnalyze.match(
+      /\b([A-Z][a-zA-Z0-9]*(?:Exception|Error|Timeout|Fault|Failure|Starvation|Exhaustion|OOMKilled))\b/,
+    );
     if (exceptionMatch && exceptionMatch[1]) {
       return exceptionMatch[1];
     }
@@ -766,7 +807,9 @@ export class AppComponent implements OnInit {
       if (words.length > 0) {
         const wordCount = Math.min(words.length, 6);
         const titleCandidate = words.slice(0, wordCount).join(' ');
-        return titleCandidate.length > 40 ? titleCandidate.substring(0, 40) + '...' : titleCandidate;
+        return titleCandidate.length > 40
+          ? titleCandidate.substring(0, 40) + '...'
+          : titleCandidate;
       }
     }
 
@@ -783,7 +826,9 @@ export class AppComponent implements OnInit {
     if (!logs) return undefined;
     const lower = source.toLowerCase();
     const matched = logs.find(
-      (l) => lower.includes(l.message.substring(0, 20).toLowerCase()) || l.message.toLowerCase().includes(lower.substring(0, 20))
+      (l) =>
+        lower.includes(l.message.substring(0, 20).toLowerCase()) ||
+        l.message.toLowerCase().includes(lower.substring(0, 20)),
     );
     return matched ? `[${matched.level}] ${matched.service}: ${matched.message}` : source;
   }
@@ -834,7 +879,7 @@ export class AppComponent implements OnInit {
       CRITICAL: 'badge-critical',
       HIGH: 'badge-high',
       MEDIUM: 'badge-medium',
-      LOW: 'badge-low'
+      LOW: 'badge-low',
     };
     return map[severity] || 'badge-default';
   }
@@ -844,7 +889,7 @@ export class AppComponent implements OnInit {
       ERROR: 'log-badge-error',
       FATAL: 'log-badge-error',
       WARN: 'log-badge-warn',
-      INFO: 'log-badge-info'
+      INFO: 'log-badge-info',
     };
     return map[level] || 'log-badge-default';
   }
@@ -853,7 +898,7 @@ export class AppComponent implements OnInit {
     const map: Record<ActionPriority, string> = {
       IMMEDIATE: 'priority-immediate',
       SHORT_TERM: 'priority-short',
-      LONG_TERM: 'priority-long'
+      LONG_TERM: 'priority-long',
     };
     return map[priority] || '';
   }

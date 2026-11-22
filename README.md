@@ -9,6 +9,7 @@
 Turn noisy application telemetry into an evidence-backed root-cause investigation, relevant runbooks, and an actionable remediation playbook.
 
 <p>
+  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Divyanshupandey007/zero500/ci.yml?label=CI" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white" />
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" />
   <img alt="PostgreSQL and pgvector" src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white" />
@@ -18,6 +19,34 @@ Turn noisy application telemetry into an evidence-backed root-cause investigatio
 </p>
 
 </div>
+
+<p align="center">
+  <img src="README_assets/incident_detail.png" alt="Zero500 incident investigation detail view" width="640" />
+</p>
+
+<p align="center">
+  <img src="README_assets/dashboard_home.png" alt="Dashboard / incident list" width="48%" />
+  <img src="README_assets/telemetry_logs.png" alt="Telemetry Log Explorer" width="48%" />
+</p>
+<p align="center">
+  <img src="README_assets/runbooks.png" alt="Runbooks & Knowledge Vectors" width="48%" />
+  <img src="README_assets/eval_scorecard.png" alt="Benchmark Scorecard HUD" width="48%" />
+</p>
+
+### Design decisions
+
+Zero500 makes a handful of deliberate trade-offs—structured JSON-schema-constrained LLM output,
+`pgvector` cosine retrieval over `gemini-embedding-001` embeddings, a five-minute investigation
+cache, and IP-based rate limiting on AI endpoints. The full rationale, known failure modes, and
+planned mitigations (including the 83% evidence-faithfulness gap) are documented in
+[`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md).
+
+### Live demo
+
+- **Frontend (Angular SPA):** https://zero500.pages.dev — Cloudflare Pages deployment.
+- **Backend API (FastAPI):** https://zero500-o8jk.onrender.com — Render web service, configured as the production `apiUrl`.
+
+Both services run on free-tier hosting, so the first request after a period of inactivity may cold-start (allow roughly 30 seconds for the backend to wake before running an investigation). The local Quickstart below avoids cold starts entirely.
 
 ---
 
@@ -109,7 +138,7 @@ flowchart TD
 | Repeat-request optimization | In-memory TTL cache | Cache investigations for five minutes |
 | Frontend | Angular, standalone components, Signals | Interactive incident workbench |
 | UI styling | Tailwind CSS, Obsidian/Charcoal theme | Responsive SRE dashboard |
-| Automated verification | `backend/sanity_check.py` | End-to-end sanity and UAT probes |
+| Automated verification | `scripts/smoke_check.py` | End-to-end sanity and UAT probes |
 
 ## Evaluation and UAT scorecard
 
@@ -121,7 +150,7 @@ The current ground-truth evaluation suite and the recorded UAT sign-off report t
 | Diagnosis accuracy (LLM-as-a-Judge) | **100%** | Semantic alignment between generated diagnoses and the verified engineering ground truth, as assessed by the configured judge |
 | Evidence faithfulness | **83%** | Whether statements in the report are supported by the retrieved evidence and raw telemetry |
 | End-to-end latency | **~5.0 s** | Approximate investigation response time for the evaluated scenarios; independent retrieval work is parallelized with Python `ThreadPoolExecutor` |
-| Automated sanity / UAT probes | **7/7 passed (100%)** | Result of the automated probes in `backend/sanity_check.py` for the recorded test run |
+| Automated sanity / UAT probes | **7/7 passed (100%)** | Result of the automated probes in `scripts/smoke_check.py` for the recorded test run |
 
 **How to interpret the numbers:** these are results for the current test suite, not guarantees of performance on every production incident. The diagnosis score uses an LLM-as-a-Judge and should be supplemented with human review as the evaluation set grows. Evidence faithfulness is not 100%; the system should be evaluated and improved on cases where the report is not fully supported. In the recorded suite, citations were checked against raw telemetry and no hallucinated timestamps or metrics were observed.
 
@@ -141,10 +170,38 @@ The current ground-truth evaluation suite and the recorded UAT sign-off report t
 
 ```bash
 git clone <your-repository-url>
-cd Zero500
+cd zero500
 ```
 
 Replace `<your-repository-url>` with the URL of your repository.
+
+## Option A: Docker Compose (fastest)
+
+The quickest way to run the full stack locally — Postgres + pgvector, the
+FastAPI backend, and the Angular frontend — with no Neon account required:
+
+```bash
+# From the repository root
+docker compose up --build
+```
+
+- **Backend API:** `http://localhost:8000` (OpenAPI docs at `/docs`)
+- **Frontend:** `http://localhost:4200`
+- **Postgres:** `localhost:5432` (user/db `zero500`)
+
+Provide your Gemini API key via a root-level `.env` file (never committed):
+
+```dotenv
+GEMINI_API_KEY=replace_with_your_api_key
+```
+
+`docker compose up` reads `GEMINI_API_KEY` from the environment; the backend
+needs it to run investigations. Stop the stack with `docker compose down`.
+
+> The local stack uses the `pgvector/pgvector` image, so embeddings and
+> cosine-distance retrieval work identically to the hosted Neon deployment.
+
+## Option B: Manual (venv + npm)
 
 ### 2. Configure Neon and environment variables
 
@@ -215,7 +272,7 @@ Open the local URL printed by the Angular development server, typically `http://
 Start the backend first, ensure the required environment variables and database are configured, then run this command from the repository root:
 
 ```bash
-python backend/sanity_check.py
+python scripts/smoke_check.py
 ```
 
 The recorded UAT run passed **7 out of 7 probes**. Re-run the script after changes to verify the current checkout; results can differ if configuration, quotas, database state, or model behavior changes.
@@ -259,7 +316,7 @@ curl "http://127.0.0.1:8000/api/v1/runbooks/search?query=database%20connection%2
 
 - [x] **Stage 1 — Incident model and ingestion:** synthetic incident records, logs, and webhook-based ingestion.
 - [x] **Stage 2 — Knowledge base and retrieval:** runbook seeding, Gemini embeddings, Neon PostgreSQL, and `pgvector` semantic search.
-- [x] **Stage 3 — Structured AI investigation:** Gemini 2.5 Flash reasoning, native JSON-schema output, and Pydantic v2 report validation.
+- [x] **Stage 3 — Structured AI investigation:** Gemini 3.5 Flash reasoning, native JSON-schema output, and Pydantic v2 report validation.
 - [x] **Stage 4 — Investigation workbench:** causal failure cascade, telemetry explorer, remediation playbook, and knowledge-vector view.
 - [x] **Stage 5 — Evaluation and UAT:** ground-truth benchmark suite, evaluation endpoint, and automated sanity probes.
 - [x] **Stage 6 — Backend hardening:** request validation, five-minute investigation cache, IP-based rate limiting, and recorded UAT verification.
@@ -268,16 +325,57 @@ curl "http://127.0.0.1:8000/api/v1/runbooks/search?query=database%20connection%2
 ## Repository layout
 
 ```text
-Zero500/
+zero500/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
 ├── backend/
 │   ├── app/
-│   │   └── data/
-│   │       └── seed_runbooks.py
-│   ├── sanity_check.py
-│   └── requirements.txt
+│   │   ├── api/
+│   │   │   └── routes.py
+│   │   ├── data/
+│   │   │   ├── chunking.py
+│   │   │   ├── eval_dataset.py
+│   │   │   ├── seed_runbooks.py
+│   │   │   └── synthetic.py
+│   │   ├── models/
+│   │   │   ├── evaluation.py
+│   │   │   ├── incident.py
+│   │   │   ├── investigation.py
+│   │   │   └── runbook.py
+│   │   ├── services/
+│   │   │   ├── evaluator.py
+│   │   │   ├── incident_repository.py
+│   │   │   ├── investigator.py
+│   │   │   └── vector_store.py
+│   │   ├── tests/
+│   │   │   ├── conftest.py
+│   │   │   ├── integration/
+│   │   │   └── unit/
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   ├── main.py
+│   │   ├── Dockerfile
+│   │   ├── pytest.ini
+│   │   ├── requirements.txt
+│   │   └── requirements-dev.txt
+├── docs/
+│   └── DESIGN_DECISIONS.md
 ├── frontend/
-├── UAT_SANITY_SIGN_OFF.md
-└── README.md
+│   ├── src/
+│   │   └── app/
+│   │       ├── core/config/system.config.ts
+│   │       ├── models/incident.model.ts
+│   │       ├── services/incident.service.ts
+│   │       └── app.component.{ts,html,css}
+│   ├── angular.json
+│   ├── package.json
+│   └── Dockerfile
+├── scripts/
+│   └── smoke_check.py
+├── docker-compose.yml
+├── README.md
+└── UAT_SANITY_SIGN_OFF.md
 ```
 
 This is a high-level map of the main project areas; individual modules may be added as the implementation evolves.
