@@ -93,11 +93,13 @@ export class IncidentService {
         }));
       }),
       catchError((err) => {
-        console.warn('Backend health check failed — API unreachable.', err);
-        this.isBackendConnected.set(false);
+        console.warn('Backend health check failed.', err);
+        this.isBackendConnected.set(err.status !== 0);
         this.isSimulatedMode.set(true);
         this.activeError.set(
-          'Backend unreachable — the API did not respond to the health check. Retry when it wakes up.',
+          err.status
+            ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+            : 'Backend unreachable — check your connection or try again shortly.',
         );
         this.systemConfig.update((c) => ({
           ...c,
@@ -136,11 +138,13 @@ export class IncidentService {
           this.incidents.update((list) => [res, ...list.filter((i) => i.id !== res.id)]);
         }),
         catchError((err) => {
-          console.warn('Backend /incidents/ingest unreachable. Retaining incident locally.', err);
-          this.isBackendConnected.set(false);
+          console.warn('Backend /incidents/ingest error. Retaining incident locally.', err);
+          this.isBackendConnected.set(err.status !== 0);
           this.isSimulatedMode.set(true);
           this.activeError.set(
-            'Backend unreachable — the incident was saved locally and will sync when the API recovers.',
+            err.status
+              ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+              : 'Backend unreachable — the incident was saved locally and will sync when the API recovers.',
           );
           return of(summary);
         }),
@@ -175,14 +179,13 @@ export class IncidentService {
         this.isIncidentsLoading.set(false);
       }),
       catchError((err) => {
-        console.warn(
-          'Backend unavailable at :8000. Demo incidents only — no fabricated AI output.',
-          err,
-        );
-        this.isBackendConnected.set(false);
+        console.warn('Backend /incidents error.', err);
+        this.isBackendConnected.set(err.status !== 0);
         this.isSimulatedMode.set(true);
         this.activeError.set(
-          'Backend unreachable — incident history and AI investigation are unavailable until the API recovers.',
+          err.status
+            ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+            : 'Backend unreachable — incident history and AI investigation are unavailable until the API recovers.',
         );
         this.isIncidentsLoading.set(false);
 
@@ -237,10 +240,12 @@ export class IncidentService {
       catchError((err) => {
         console.warn(`Failed to fetch incident ${id} from live API.`, err);
         this.isIncidentDetailLoading.set(false);
-        this.isBackendConnected.set(false);
+        this.isBackendConnected.set(err.status !== 0);
         this.isSimulatedMode.set(true);
         this.activeError.set(
-          `Backend unreachable — details for ${id} are unavailable until the API recovers.`,
+          err.status
+            ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+            : `Backend unreachable — details for ${id} are unavailable until the API recovers.`,
         );
 
         // Serve the matching demo incident from the shared fixture, never a substituted one
@@ -276,15 +281,14 @@ export class IncidentService {
           this.activeError.set(null);
         }),
         catchError((err) => {
-          console.warn(
-            `Investigation unavailable for ${id} — backend offline. No simulated report will be shown.`,
-            err,
-          );
+          console.warn(`Investigation error for ${id}. No simulated report will be shown.`, err);
           this.isInvestigating.set(false);
-          this.isBackendConnected.set(false);
+          this.isBackendConnected.set(err.status !== 0);
           this.isSimulatedMode.set(true);
           this.activeError.set(
-            `Backend unreachable — AI investigation for ${id} is unavailable. Retry when the API recovers.`,
+            err.status
+              ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+              : `Backend unreachable — AI investigation for ${id} is unavailable. Retry when the API recovers.`,
           );
           return of(null);
         }),
@@ -310,12 +314,14 @@ export class IncidentService {
         this.activeError.set(null);
       }),
       catchError((err) => {
-        console.warn('Evaluation suite unavailable — backend offline.', err);
+        console.warn('Evaluation suite error.', err);
         this.isEvaluating.set(false);
-        this.isBackendConnected.set(false);
+        this.isBackendConnected.set(err.status !== 0);
         this.isSimulatedMode.set(true);
         this.activeError.set(
-          'Backend unreachable — benchmark suite is unavailable until the API recovers.',
+          err.status
+            ? `Backend error (${err.status}): ${err.error?.detail ?? 'see console for details'}`
+            : 'Backend unreachable — benchmark suite is unavailable until the API recovers.',
         );
         return of(null);
       }),

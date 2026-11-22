@@ -101,5 +101,7 @@ def investigate_incident(request:Request,incident_id:str):
 def run_evaluation_suite(request:Request):
     try:
         return evaluation_engine.run_suite()
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500,detail=f"Evaluation failed: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {e!s}")

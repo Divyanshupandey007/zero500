@@ -1,6 +1,8 @@
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from fastapi import HTTPException
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -12,6 +14,8 @@ from app.models.evaluation import EvaluationSuiteReport, TestCaseResult
 from app.models.incident import IncidentDetail
 from app.models.investigation import InvestigationReport
 from app.services.investigator import investigator_service
+
+logger = logging.getLogger(__name__)
 
 
 class JudgeScore(BaseModel):
@@ -69,41 +73,47 @@ AI Predicted Root Cause:
         return judge_res.alignment_score
 
     def _evaluate_single(self, test, incident_map):
-        inc_id=test["incident_id"]
-        incident=incident_map.get(inc_id)
+        inc_id = test["incident_id"]
+        incident = incident_map.get(inc_id)
         if not incident:
             return None
 
-        start_time=time.time()
-        report:InvestigationReport=investigator_service.investigate(incident)
-        latency=round(time.time()-start_time,2)
+        try:
+            start_time = time.time()
+            report: InvestigationReport = investigator_service.investigate(incident)
+            latency = round(time.time() - start_time, 2)
 
-        # Retrieval Eval
-        retrieval_success=any(
-            test["expected_runbook_keyword"].lower() in mb.title.lower()
-            for mb in report.matched_runbooks
-        )
+            # Retrieval Eval
+            retrieval_success = any(
+                test["expected_runbook_keyword"].lower() in mb.title.lower()
+                for mb in report.matched_runbooks
+            )
 
-        # Faithfulness Eval
-        faithfulness=self._eval_faithfulness(incident,report)
+            # Faithfulness Eval
+            faithfulness = self._eval_faithfulness(incident, report)
 
-        # LLM as a Judge Eval
-        accuracy=self._judge_diagnosis_accuracy(
-            test["ground_truth_root_cause"],
-            report.suspected_root_cause
-        )
+            # LLM as a Judge Eval
+            accuracy = self._judge_diagnosis_accuracy(
+                test["ground_truth_root_cause"],
+                report.suspected_root_cause,
+            )
 
-        return TestCaseResult(
-            incident_id=inc_id,
-            retrieval_success=retrieval_success,
-            faithfulness_score=faithfulness,
-            diagnosis_alignment_score=accuracy,
-            latency_seconds=latency,
-            details={
-                "predicted_root_cause":report.suspected_root_cause,
-                "top_runbook_retrieved":report.matched_runbooks[0].title if report.matched_runbooks else "None"
-            }
-        )
+            return TestCaseResult(
+                incident_id=inc_id,
+                retrieval_success=retrieval_success,
+                faithfulness_score=faithfulness,
+                diagnosis_alignment_score=accuracy,
+                latency_seconds=latency,
+                details={
+                    "predicted_root_cause": report.suspected_root_cause,
+                    "top_runbook_retrieved": report.matched_runbooks[0].title
+                    if report.matched_runbooks
+                    else "None",
+                },
+            )
+        except Exception as exc:
+            logger.exception("Evaluation failed for test case %s: %s", inc_id, exc)
+            return None
 
     def run_suite(self)->EvaluationSuiteReport:
         incident_map={inc.id:inc for inc in SYNTHETIC_INCIDENTS}
@@ -112,8 +122,14 @@ AI Predicted Root Cause:
 
         results = [r for r in raw_results if r is not None]
 
-        total=len(results)
-        recall=round(sum(1 for r in results if r.retrieval_success)/total,2)
+        total = len(results)
+        if total == 0:
+            raise HTTPException(
+                status_code=503,
+                detail="No test cases could be evaluated",
+            )
+
+        recall = round(sum(1 for r in results if r.retrieval_success) / total, 2)
         avg_faith=round(sum(r.faithfulness_score for r in results)/total,2)
         avg_acc=round(sum(r.diagnosis_alignment_score for r in results)/total,2)
         avg_lat=round(sum(r.latency_seconds for r in results)/total,2)

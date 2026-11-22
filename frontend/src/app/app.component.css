@@ -2678,6 +2678,22 @@
   text-align: center;
 }
 
+.eval-error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-wrap;
+}
+
 .btn-text {
   background: none;
   border: none;

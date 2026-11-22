@@ -1202,6 +1202,8 @@
                 >Evaluating vector recall and LLM-as-a-judge score</span
               >
             </div>
+          } @else if (incidentService.activeError()) {
+            <div class="eval-error-state font-mono">{{ incidentService.activeError() }}</div>
           }
         </div>
 
