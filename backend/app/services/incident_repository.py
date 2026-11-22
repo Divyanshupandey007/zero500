@@ -1,9 +1,17 @@
 import json
-from typing import List,Optional
+
 import psycopg
+
 from app.config import settings
-from app.models.incident import IncidentDetail,IncidentSummary,LogEntry,Severity,LogLevel
 from app.data.synthetic import SYNTHETIC_INCIDENTS
+from app.models.incident import (
+    IncidentDetail,
+    IncidentSummary,
+    LogEntry,
+    LogLevel,
+    Severity,
+)
+
 
 class IncidentRepository:
     def get_connection(self):
@@ -11,13 +19,12 @@ class IncidentRepository:
 
     def seed_initial_incidents_if_empty(self):
         """Seeds the 3 demo incidents of table is empty"""
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM incidents;")
-                if cur.fetchone()[0]==0:
-                    for inc in SYNTHETIC_INCIDENTS:
-                        self.save_incident(inc)
-                    conn.commit()
+        with self.get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM incidents;")
+            if cur.fetchone()[0]==0:
+                for inc in SYNTHETIC_INCIDENTS:
+                    self.save_incident(inc)
+                conn.commit()
 
     def save_incident(self,inc:IncidentDetail):
         """Insert or update an incident and its associated logs"""
@@ -45,28 +52,27 @@ class IncidentRepository:
 
                 conn.commit()
 
-    def list_all_summaries(self)->List[IncidentSummary]:
-        with self.get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
+    def list_all_summaries(self)->list[IncidentSummary]:
+        with self.get_connection() as conn, conn.cursor() as cur:
+            cur.execute("""
                     SELECT id,title,service,severity,status,created_at
                     FROM incidents
                     ORDER BY created_at DESC;
                 """)
-                rows=cur.fetchall()
-                return[
-                    IncidentSummary(
-                        id=r[0],
-                        title=r[1],
-                        service=r[2],
-                        severity=Severity(r[3]),
-                        status=r[4],
-                        created_at=r[5]
-                    )
-                    for r in rows
-                ]
+            rows=cur.fetchall()
+            return[
+                IncidentSummary(
+                    id=r[0],
+                    title=r[1],
+                    service=r[2],
+                    severity=Severity(r[3]),
+                    status=r[4],
+                    created_at=r[5]
+                )
+                for r in rows
+            ]
 
-    def get_incident_by_id(self,incident_id:str)->Optional[IncidentDetail]:
+    def get_incident_by_id(self,incident_id:str)->IncidentDetail | None:
         with self.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""

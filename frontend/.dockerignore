@@ -1,0 +1,13 @@
+node_modules/
+.angular/
+dist/
+.npm
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db

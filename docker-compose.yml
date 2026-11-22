@@ -1,0 +1,72 @@
+# Zero500 local development stack.
+#
+# Brings up Postgres + pgvector, the FastAPI backend, and the Angular frontend
+# with no external Neon account required. Intended for local development and
+# fully offline demo runs (Docker Desktop must be running).
+#
+# Usage:
+#   docker compose up --build
+#   # Backend API:  http://localhost:8000  (docs at /docs)
+#   # Frontend:     http://localhost:4200
+#
+# Environment overrides can be supplied via a root-level .env file (never
+# committed). See backend/.env.example for the expected variable names.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: zero500-postgres
+    environment:
+      POSTGRES_USER: zero500
+      POSTGRES_PASSWORD: zero500
+      POSTGRES_DB: zero500
+    volumes:
+      - zero500_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zero500 -d zero500"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: zero500-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://zero500:zero500@postgres:5432/zero500?sslmode=disable
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: gemini-3.5-flash
+      EMBEDDING_MODEL: gemini-embedding-001
+      EMBEDDING_DIMENSIONS: "768"
+      ALLOWED_ORIGINS: http://localhost:4200,http://127.0.0.1:4200
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: zero500-frontend
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      # Nginx serves static files; the Angular app reads apiUrl at build time
+      # from system.config.ts (localhost:8000 in this local stack).
+    ports:
+      - "4200:80"
+    restart: unless-stopped
+
+volumes:
+  zero500_postgres_data:
+
+networks:
+  default:
+    name: zero500_local

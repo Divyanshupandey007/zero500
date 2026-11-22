@@ -1,0 +1,12 @@
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# pyflakes (F) catches unused imports/undefined names; pycodestyle errors (E)
+# catch real syntax/style issues. Line-length (E501) is intentionally noisy for
+# a demo, so it is ignored.
+select = ["E", "F"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

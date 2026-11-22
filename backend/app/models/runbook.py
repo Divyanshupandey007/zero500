@@ -1,5 +1,7 @@
 from typing import Literal
-from pydantic import BaseModel,Field
+
+from pydantic import BaseModel, Field
+
 
 class CreateRunbook(BaseModel):
     title:str=Field(min_length=1,description="Description title of the runbook or post-mortem")

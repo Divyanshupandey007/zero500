@@ -1,16 +1,18 @@
 import time
-from pydantic import BaseModel,Field
+from concurrent.futures import ThreadPoolExecutor
+
 from google import genai
 from google.genai import types
+from pydantic import BaseModel, Field
+
 from app.config import settings
-from app.models.incident import IncidentDetail
-from app.models.investigation import InvestigationReport
-from app.models.evaluation import TestCaseResult,EvaluationSuiteReport
 from app.data.eval_dataset import EVAL_GROUND_TRUTH
 from app.data.synthetic import SYNTHETIC_INCIDENTS
+from app.models.evaluation import EvaluationSuiteReport, TestCaseResult
+from app.models.incident import IncidentDetail
+from app.models.investigation import InvestigationReport
 from app.services.investigator import investigator_service
 
-from concurrent.futures import ThreadPoolExecutor
 
 class JudgeScore(BaseModel):
     alignment_score:float=Field(ge=0.0,le=1.0,description="Score 0.0 to 1.0 on how well the hypothesis matches ground truth")

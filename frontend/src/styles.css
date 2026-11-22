@@ -6,38 +6,38 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
 
   /* Industrial Obsidian & Charcoal Dark Palette (Linear / Stripe / Honeycomb inspired) */
-  --bg-obsidian: #090A0C;
+  --bg-obsidian: #090a0c;
   --bg-panel: #111317;
-  --bg-panel-hover: #16191F;
-  --bg-console: #0D0E11;
-  --border-subtle: #1E2228;
-  --border-bright: #2A303A;
+  --bg-panel-hover: #16191f;
+  --bg-console: #0d0e11;
+  --border-subtle: #1e2228;
+  --border-bright: #2a303a;
 
   /* High-Precision Typography Hierarchy */
-  --text-primary: #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted: #64748B;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
   --text-dim: #475569;
 
   /* Functional Safety Accents (Matte & Industrial) */
-  --status-crimson: #EF4444;
-  --status-crimson-bg: rgba(239, 68, 68, 0.10);
+  --status-crimson: #ef4444;
+  --status-crimson-bg: rgba(239, 68, 68, 0.1);
   --status-crimson-border: rgba(239, 68, 68, 0.25);
 
-  --status-amber: #F59E0B;
-  --status-amber-bg: rgba(245, 158, 11, 0.10);
+  --status-amber: #f59e0b;
+  --status-amber-bg: rgba(245, 158, 11, 0.1);
   --status-amber-border: rgba(245, 158, 11, 0.25);
 
-  --status-emerald: #10B981;
-  --status-emerald-bg: rgba(16, 185, 129, 0.10);
+  --status-emerald: #10b981;
+  --status-emerald-bg: rgba(16, 185, 129, 0.1);
   --status-emerald-border: rgba(16, 185, 129, 0.25);
 
-  --status-steel: #38BDF8;
-  --status-steel-bg: rgba(56, 189, 248, 0.10);
+  --status-steel: #38bdf8;
+  --status-steel-bg: rgba(56, 189, 248, 0.1);
   --status-steel-border: rgba(56, 189, 248, 0.25);
 
-  --accent-action: #0284C7;
-  --accent-action-hover: #0369A1;
+  --accent-action: #0284c7;
+  --accent-action-hover: #0369a1;
 }
 
 * {
@@ -46,12 +46,13 @@
   padding: 0;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   width: 100%;
   overflow: hidden;
   background-color: var(--bg-obsidian);
-  background-image: radial-gradient(circle at 50% 0%, #131720 0%, #090A0C 75%);
+  background-image: radial-gradient(circle at 50% 0%, #131720 0%, #090a0c 75%);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 13px;
@@ -69,11 +70,11 @@ html, body {
   background: var(--bg-obsidian);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E2229;
+  background: #1e2229;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #2D333D;
+  background: #2d333d;
 }
 
 /* Tasteful Micro-Animations */
@@ -93,18 +94,32 @@ html, body {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes lineDraw {
-  from { stroke-dashoffset: 40; }
-  to { stroke-dashoffset: 0; }
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
 .animate-spin {

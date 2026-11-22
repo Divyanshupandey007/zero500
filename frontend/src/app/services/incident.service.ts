@@ -6,7 +6,7 @@ import {
   IncidentSummary,
   IncidentDetail,
   InvestigationReport,
-  EvaluationSuiteReport
+  EvaluationSuiteReport,
 } from '../models/incident.model';
 import { SystemMetadata, DEFAULT_SYSTEM_CONFIG } from '../core/config/system.config';
 
@@ -18,7 +18,7 @@ export interface RunbookCreate {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class IncidentService {
   private readonly http = inject(HttpClient);
@@ -64,40 +64,43 @@ export class IncidentService {
       severity: 'CRITICAL',
       status: 'INVESTIGATING',
       created_at: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-      description: 'Spike in 500 status codes immediately following release v2.4.1 deployment to production.',
+      description:
+        'Spike in 500 status codes immediately following release v2.4.1 deployment to production.',
       metrics_snapshot: {
         error_rate_percentage: 24.5,
         latency_p99_ms: 1240,
         pod_restart_count: 0,
         active_threads: 420,
-        cpu_utilization_pct: 68.2
+        cpu_utilization_pct: 68.2,
       },
       logs: [
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 37).toISOString(),
           level: 'INFO',
           service: 'checkout-service',
-          message: 'Deployment v2.4.1 rollout complete on cluster us-east-1.'
+          message: 'Deployment v2.4.1 rollout complete on cluster us-east-1.',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 36).toISOString(),
           level: 'ERROR',
           service: 'checkout-service',
-          message: "NullPointerException: Cannot read field 'tenant_id' because 'session' is null at OrderController.process(OrderController.java:84)"
+          message:
+            "NullPointerException: Cannot read field 'tenant_id' because 'session' is null at OrderController.process(OrderController.java:84)",
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
           level: 'ERROR',
           service: 'checkout-service',
-          message: 'Handler dispatch failed; nested exception is java.lang.NullPointerException at TenantInterceptor.preHandle'
+          message:
+            'Handler dispatch failed; nested exception is java.lang.NullPointerException at TenantInterceptor.preHandle',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 34).toISOString(),
           level: 'WARN',
           service: 'checkout-service',
-          message: 'Circuit breaker checkout-downstream-payment trips threshold (error rate > 20%)'
-        }
-      ]
+          message: 'Circuit breaker checkout-downstream-payment trips threshold (error rate > 20%)',
+        },
+      ],
     },
     {
       id: 'INC-5002',
@@ -106,34 +109,36 @@ export class IncidentService {
       severity: 'HIGH',
       status: 'INVESTIGATING',
       created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-      description: 'Users microservice failing health checks; unable to acquire database connection from HikariCP pool.',
+      description:
+        'Users microservice failing health checks; unable to acquire database connection from HikariCP pool.',
       metrics_snapshot: {
         active_connections: 100,
         max_connections: 100,
         connection_timeout_ms: 30000,
         waiting_threads_count: 78,
-        db_cpu_usage_pct: 94.1
+        db_cpu_usage_pct: 94.1,
       },
       logs: [
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 122).toISOString(),
           level: 'WARN',
           service: 'users-service',
-          message: 'HikariPool-1 - Connection is not available, request timed out after 30000ms.'
+          message: 'HikariPool-1 - Connection is not available, request timed out after 30000ms.',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 121).toISOString(),
           level: 'ERROR',
           service: 'users-service',
-          message: 'org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections'
+          message:
+            'org.postgresql.util.PSQLException: FATAL: remaining connection slots are reserved for non-replication superuser connections',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
           level: 'ERROR',
           service: 'users-service',
-          message: 'Failed to complete tenant auth query: connection pool starvation timeout'
-        }
-      ]
+          message: 'Failed to complete tenant auth query: connection pool starvation timeout',
+        },
+      ],
     },
     {
       id: 'INC-5003',
@@ -142,192 +147,215 @@ export class IncidentService {
       severity: 'MEDIUM',
       status: 'INVESTIGATING',
       created_at: new Date(Date.now() - 1000 * 60 * 340).toISOString(),
-      description: 'Outbound calls to external Stripe gateway exceeding standard 2500ms timeout threshold.',
+      description:
+        'Outbound calls to external Stripe gateway exceeding standard 2500ms timeout threshold.',
       metrics_snapshot: {
         gateway_latency_p95_ms: 8400,
         circuit_breaker_state: 'HALF_OPEN',
         dropped_requests: 142,
-        upstream_failure_pct: 38.6
+        upstream_failure_pct: 38.6,
       },
       logs: [
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 342).toISOString(),
           level: 'WARN',
           service: 'payment-gateway-proxy',
-          message: 'Upstream gateway response time degraded: average 6200ms.'
+          message: 'Upstream gateway response time degraded: average 6200ms.',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 341).toISOString(),
           level: 'ERROR',
           service: 'payment-gateway-proxy',
-          message: 'ClientRequestTimeoutException: SocketTimeoutException reading from https://api.stripe.com/v1/charges after 5000ms'
+          message:
+            'ClientRequestTimeoutException: SocketTimeoutException reading from https://api.stripe.com/v1/charges after 5000ms',
         },
         {
           timestamp: new Date(Date.now() - 1000 * 60 * 340).toISOString(),
           level: 'WARN',
           service: 'payment-gateway-proxy',
-          message: 'Resilience4j circuit breaker state transitioned from CLOSED to HALF_OPEN'
-        }
-      ]
-    }
+          message: 'Resilience4j circuit breaker state transitioned from CLOSED to HALF_OPEN',
+        },
+      ],
+    },
   ];
 
   private readonly fallbackReports: Record<string, InvestigationReport> = {
     'INC-5001': {
       incident_id: 'INC-5001',
-      executive_summary: 'Release v2.4.1 broke session context initialization, resulting in NullPointerException for all authenticated checkout transactions.',
-      suspected_root_cause: 'Deployment v2.4.1 introduced a regression where the session object is null when TenantInterceptor executes before OrderController, causing a cascade of NullPointerExceptions and 24.5% HTTP 500 error spike.',
+      executive_summary:
+        'Release v2.4.1 broke session context initialization, resulting in NullPointerException for all authenticated checkout transactions.',
+      suspected_root_cause:
+        'Deployment v2.4.1 introduced a regression where the session object is null when TenantInterceptor executes before OrderController, causing a cascade of NullPointerExceptions and 24.5% HTTP 500 error spike.',
       confidence_score: 0.96,
       matched_runbooks: [
         {
           title: 'Runbook: Checkout Service NullPointer & Auth Failure Triage',
           doc_type: 'RUNBOOK',
-          similarity_score: 0.894
+          similarity_score: 0.894,
         },
         {
           title: 'Post-Mortem: Q3 Deployment Interceptor Context Drop',
           doc_type: 'PAST_POSTMORTEM',
-          similarity_score: 0.742
-        }
+          similarity_score: 0.742,
+        },
       ],
       evidence: [
         {
           source: 'checkout-service log: OrderController.process line 84',
-          detail: "Direct NullPointerException reading 'tenant_id' from uninitialized session context."
+          detail:
+            "Direct NullPointerException reading 'tenant_id' from uninitialized session context.",
         },
         {
           source: 'Metrics: error_rate_percentage = 24.5%',
-          detail: 'Error rate spiked from baseline 0.05% to 24.5% immediately following v2.4.1 deployment.'
+          detail:
+            'Error rate spiked from baseline 0.05% to 24.5% immediately following v2.4.1 deployment.',
         },
         {
           source: 'checkout-service log: TenantInterceptor.preHandle',
-          detail: 'Shows interceptor failing to inject session attributes into request chain.'
-        }
+          detail: 'Shows interceptor failing to inject session attributes into request chain.',
+        },
       ],
       remediation_plan: [
         {
           action: 'Roll back checkout-service deployment to stable v2.4.0',
           priority: 'IMMEDIATE',
-          description: 'Execute instant rollback via Helm to restore healthy order processing: helm rollback checkout-service-prod',
-          runbook_reference: 'Runbook: Checkout Service NullPointer & Auth Failure Triage'
+          description:
+            'Execute instant rollback via Helm to restore healthy order processing: helm rollback checkout-service-prod',
+          runbook_reference: 'Runbook: Checkout Service NullPointer & Auth Failure Triage',
         },
         {
           action: 'Verify rollback health and error rate normalization',
           priority: 'IMMEDIATE',
-          description: 'Monitor /api/v1/checkout HTTP 500 error rate down below 0.1% within 2 minutes post-rollback.',
-          runbook_reference: 'Runbook: Checkout Service NullPointer & Auth Failure Triage'
+          description:
+            'Monitor /api/v1/checkout HTTP 500 error rate down below 0.1% within 2 minutes post-rollback.',
+          runbook_reference: 'Runbook: Checkout Service NullPointer & Auth Failure Triage',
         },
         {
           action: 'Audit TenantInterceptor null-safety and integration tests',
           priority: 'SHORT_TERM',
-          description: 'Add mandatory null-session contract checks and regression unit tests before re-attempting rollout.',
-          runbook_reference: null
+          description:
+            'Add mandatory null-session contract checks and regression unit tests before re-attempting rollout.',
+          runbook_reference: null,
         },
         {
           action: 'Implement canary deployment gates for checkout microservice',
           priority: 'LONG_TERM',
-          description: 'Configure automated Argo Rollouts with Prometheus metric analysis step to abort on 500 spikes.',
-          runbook_reference: null
-        }
+          description:
+            'Configure automated Argo Rollouts with Prometheus metric analysis step to abort on 500 spikes.',
+          runbook_reference: null,
+        },
       ],
-      requires_human_escalation: false
+      requires_human_escalation: false,
     },
     'INC-5002': {
       incident_id: 'INC-5002',
-      executive_summary: 'HikariCP connection pool saturated at 100/100 capacity, blocking all incoming client queries with timeouts.',
-      suspected_root_cause: 'The users-service microservice completely exhausted the HikariCP database connection pool (100 active connections) due to unindexed slow tenant queries locking connections, triggering PostgreSQL superuser slot reservations.',
+      executive_summary:
+        'HikariCP connection pool saturated at 100/100 capacity, blocking all incoming client queries with timeouts.',
+      suspected_root_cause:
+        'The users-service microservice completely exhausted the HikariCP database connection pool (100 active connections) due to unindexed slow tenant queries locking connections, triggering PostgreSQL superuser slot reservations.',
       confidence_score: 0.94,
       matched_runbooks: [
         {
           title: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services',
           doc_type: 'RUNBOOK',
-          similarity_score: 0.918
-        }
+          similarity_score: 0.918,
+        },
       ],
       evidence: [
         {
           source: 'Metrics: active_connections = 100 / max_connections = 100',
-          detail: '100% connection pool saturation with 78 threads queued in starvation.'
+          detail: '100% connection pool saturation with 78 threads queued in starvation.',
         },
         {
           source: 'users-service log: HikariPool-1 request timed out after 30000ms',
-          detail: 'Worker threads unable to obtain connection within timeout window.'
+          detail: 'Worker threads unable to obtain connection within timeout window.',
         },
         {
           source: 'Postgres error: FATAL remaining connection slots are reserved',
-          detail: 'PostgreSQL instance rejected regular client connections due to superuser ceiling.'
-        }
+          detail:
+            'PostgreSQL instance rejected regular client connections due to superuser ceiling.',
+        },
       ],
       remediation_plan: [
         {
           action: 'Terminate long-running unindexed queries and restart hung worker pods',
           priority: 'IMMEDIATE',
-          description: 'Run SELECT pg_terminate_backend(pid) for idle-in-transaction sessions and restart users-service pods to release pool handles.',
-          runbook_reference: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services'
+          description:
+            'Run SELECT pg_terminate_backend(pid) for idle-in-transaction sessions and restart users-service pods to release pool handles.',
+          runbook_reference: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services',
         },
         {
           action: 'Increase pool allocation and tune connection leak detection',
           priority: 'SHORT_TERM',
-          description: 'Enable leakDetectionThreshold=5000 in HikariCP config and scale PgBouncer connection limit.',
-          runbook_reference: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services'
+          description:
+            'Enable leakDetectionThreshold=5000 in HikariCP config and scale PgBouncer connection limit.',
+          runbook_reference: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services',
         },
         {
           action: 'Optimize query index on tenant_accounts table',
           priority: 'LONG_TERM',
-          description: 'Create partial index on tenant_accounts(status, updated_at) to prevent full sequential table scans.',
-          runbook_reference: null
-        }
+          description:
+            'Create partial index on tenant_accounts(status, updated_at) to prevent full sequential table scans.',
+          runbook_reference: null,
+        },
       ],
-      requires_human_escalation: true
+      requires_human_escalation: true,
     },
     'INC-5003': {
       incident_id: 'INC-5003',
-      executive_summary: 'Stripe external payment gateway latency spike degraded response time to 8.4s, tripping proxy circuit breaker.',
-      suspected_root_cause: 'External Stripe API latency degradation caused proxy socket timeouts and tripped Resilience4j circuit breaker into HALF_OPEN state, dropping 142 payment requests.',
+      executive_summary:
+        'Stripe external payment gateway latency spike degraded response time to 8.4s, tripping proxy circuit breaker.',
+      suspected_root_cause:
+        'External Stripe API latency degradation caused proxy socket timeouts and tripped Resilience4j circuit breaker into HALF_OPEN state, dropping 142 payment requests.',
       confidence_score: 0.88,
       matched_runbooks: [
         {
           title: 'Post-Mortem: Q3 Stripe Gateway Latency Outage',
           doc_type: 'PAST_POSTMORTEM',
-          similarity_score: 0.871
-        }
+          similarity_score: 0.871,
+        },
       ],
       evidence: [
         {
           source: 'Metrics: gateway_latency_p95_ms = 8400ms',
-          detail: 'Latency spiked to 8.4 seconds exceeding the 2500ms SLA threshold.'
+          detail: 'Latency spiked to 8.4 seconds exceeding the 2500ms SLA threshold.',
         },
         {
           source: 'payment-gateway-proxy log: ClientRequestTimeoutException after 5000ms',
-          detail: 'Socket read timeout triggered on https://api.stripe.com/v1/charges.'
+          detail: 'Socket read timeout triggered on https://api.stripe.com/v1/charges.',
         },
         {
           source: 'Metrics: circuit_breaker_state = HALF_OPEN',
-          detail: 'Circuit breaker opened to prevent thread pool starvation across internal callers.'
-        }
+          detail:
+            'Circuit breaker opened to prevent thread pool starvation across internal callers.',
+        },
       ],
       remediation_plan: [
         {
           action: 'Verify fallback queueing and Stripe external status page',
           priority: 'IMMEDIATE',
-          description: 'Check status.stripe.com for regional gateway incidents and ensure asynchronous payment queue retry is buffering customer orders.',
-          runbook_reference: 'Post-Mortem: Q3 Stripe Gateway Latency Outage'
+          description:
+            'Check status.stripe.com for regional gateway incidents and ensure asynchronous payment queue retry is buffering customer orders.',
+          runbook_reference: 'Post-Mortem: Q3 Stripe Gateway Latency Outage',
         },
         {
           action: 'Route non-critical payment retries to secondary backup payment provider',
           priority: 'SHORT_TERM',
-          description: 'Flip dynamic feature flag PAYMENT_PROVIDER_FALLBACK_ACTIVE=true to route 50% traffic through Adyen backup pipeline.',
-          runbook_reference: null
+          description:
+            'Flip dynamic feature flag PAYMENT_PROVIDER_FALLBACK_ACTIVE=true to route 50% traffic through Adyen backup pipeline.',
+          runbook_reference: null,
         },
         {
-          action: 'Refactor upstream timeout bounds to 3000ms hard ceiling with exponential backoff',
+          action:
+            'Refactor upstream timeout bounds to 3000ms hard ceiling with exponential backoff',
           priority: 'LONG_TERM',
-          description: 'Standardize client timeouts across all third-party integrations with jittered exponential backoff.',
-          runbook_reference: 'Post-Mortem: Q3 Stripe Gateway Latency Outage'
-        }
+          description:
+            'Standardize client timeouts across all third-party integrations with jittered exponential backoff.',
+          runbook_reference: 'Post-Mortem: Q3 Stripe Gateway Latency Outage',
+        },
       ],
-      requires_human_escalation: false
-    }
+      requires_human_escalation: false,
+    },
   };
 
   private readonly fallbackEvaluation: EvaluationSuiteReport = {
@@ -345,9 +373,10 @@ export class IncidentService {
         diagnosis_alignment_score: 0.98,
         latency_seconds: 1.82,
         details: {
-          predicted_root_cause: 'NullPointerException in OrderController/TenantInterceptor due to missing session context in v2.4.1 release.',
-          top_runbook_retrieved: 'Runbook: Checkout Service NullPointer & Auth Failure Triage'
-        }
+          predicted_root_cause:
+            'NullPointerException in OrderController/TenantInterceptor due to missing session context in v2.4.1 release.',
+          top_runbook_retrieved: 'Runbook: Checkout Service NullPointer & Auth Failure Triage',
+        },
       },
       {
         incident_id: 'INC-5002',
@@ -356,22 +385,25 @@ export class IncidentService {
         diagnosis_alignment_score: 0.95,
         latency_seconds: 2.25,
         details: {
-          predicted_root_cause: 'HikariCP connection pool starvation caused by unindexed queries holding postgres slots at 100/100 max.',
-          top_runbook_retrieved: 'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services'
-        }
+          predicted_root_cause:
+            'HikariCP connection pool starvation caused by unindexed queries holding postgres slots at 100/100 max.',
+          top_runbook_retrieved:
+            'Runbook: HikariCP Connection Pool Exhaustion on Postgres Services',
+        },
       },
       {
         incident_id: 'INC-5003',
         retrieval_success: true,
-        faithfulness_score: 0.80,
+        faithfulness_score: 0.8,
         diagnosis_alignment_score: 0.94,
         latency_seconds: 2.35,
         details: {
-          predicted_root_cause: 'External Stripe payment gateway latency exceeding client timeout leading to HALF_OPEN circuit breaker state.',
-          top_runbook_retrieved: 'Post-Mortem: Q3 Stripe Gateway Latency Outage'
-        }
-      }
-    ]
+          predicted_root_cause:
+            'External Stripe payment gateway latency exceeding client timeout leading to HALF_OPEN circuit breaker state.',
+          top_runbook_retrieved: 'Post-Mortem: Q3 Stripe Gateway Latency Outage',
+        },
+      },
+    ],
   };
 
   /**
@@ -385,7 +417,7 @@ export class IncidentService {
         this.systemConfig.update((c) => ({
           ...c,
           status: 'HEALTHY',
-          engineName: res.app || c.engineName
+          engineName: res.app || c.engineName,
         }));
       }),
       catchError((err) => {
@@ -393,10 +425,10 @@ export class IncidentService {
         this.isSimulatedMode.set(true);
         this.systemConfig.update((c) => ({
           ...c,
-          status: 'DEGRADED'
+          status: 'DEGRADED',
         }));
         return of({ status: 'offline', app: 'Zero500 (Simulated SRE Sandbox)' });
-      })
+      }),
     );
   }
 
@@ -412,23 +444,28 @@ export class IncidentService {
       service: incident.service,
       severity: incident.severity,
       created_at: incident.created_at || new Date().toISOString(),
-      status: incident.status || 'INVESTIGATING'
+      status: incident.status || 'INVESTIGATING',
     };
 
     // Prepend to incidents list signal immediately so sidebar reflects the new incident
     this.incidents.update((list) => [summary, ...list.filter((i) => i.id !== summary.id)]);
 
-    return this.http.post<IncidentSummary>(`${this.systemConfig().apiUrl}/incidents/ingest`, incident).pipe(
-      tap((res) => {
-        this.isBackendConnected.set(true);
-        this.isSimulatedMode.set(false);
-        this.incidents.update((list) => [res, ...list.filter((i) => i.id !== res.id)]);
-      }),
-      catchError((err) => {
-        console.warn('Backend /incidents/ingest unreachable or simulated mode active. Retaining incident locally.', err);
-        return of(summary);
-      })
-    );
+    return this.http
+      .post<IncidentSummary>(`${this.systemConfig().apiUrl}/incidents/ingest`, incident)
+      .pipe(
+        tap((res) => {
+          this.isBackendConnected.set(true);
+          this.isSimulatedMode.set(false);
+          this.incidents.update((list) => [res, ...list.filter((i) => i.id !== res.id)]);
+        }),
+        catchError((err) => {
+          console.warn(
+            'Backend /incidents/ingest unreachable or simulated mode active. Retaining incident locally.',
+            err,
+          );
+          return of(summary);
+        }),
+      );
   }
 
   /**
@@ -446,9 +483,12 @@ export class IncidentService {
           service: inc.service,
           severity: inc.severity,
           created_at: inc.created_at,
-          status: inc.status
+          status: inc.status,
         }));
-        const combined = [...localSummaries.filter((l) => !data.some((d) => d.id === l.id)), ...data];
+        const combined = [
+          ...localSummaries.filter((l) => !data.some((d) => d.id === l.id)),
+          ...data,
+        ];
         this.incidents.set(combined);
         this.isBackendConnected.set(true);
         this.isSimulatedMode.set(false);
@@ -467,7 +507,7 @@ export class IncidentService {
           service: inc.service,
           severity: inc.severity,
           created_at: inc.created_at,
-          status: inc.status
+          status: inc.status,
         }));
         const fallbackSummaries = this.fallbackIncidents.map((inc) => ({
           id: inc.id,
@@ -475,15 +515,15 @@ export class IncidentService {
           service: inc.service,
           severity: inc.severity,
           created_at: inc.created_at,
-          status: inc.status
+          status: inc.status,
         }));
         const combined = [
           ...localSummaries.filter((l) => !fallbackSummaries.some((f) => f.id === l.id)),
-          ...fallbackSummaries
+          ...fallbackSummaries,
         ];
         this.incidents.set(combined);
         return of(combined);
-      })
+      }),
     );
   }
 
@@ -504,12 +544,18 @@ export class IncidentService {
         this.isBackendConnected.set(true);
       }),
       catchError((err) => {
-        console.warn(`Failed to fetch incident ${id} from live API. Falling back to local dataset.`, err);
+        console.warn(
+          `Failed to fetch incident ${id} from live API. Falling back to local dataset.`,
+          err,
+        );
         this.isIncidentDetailLoading.set(false);
-        const match = localMatch || this.fallbackIncidents.find((i) => i.id.toLowerCase() === id.toLowerCase()) || this.fallbackIncidents[0];
+        const match =
+          localMatch ||
+          this.fallbackIncidents.find((i) => i.id.toLowerCase() === id.toLowerCase()) ||
+          this.fallbackIncidents[0];
         this.selectedIncident.set(match);
         return of(match);
-      })
+      }),
     );
   }
 
@@ -520,41 +566,56 @@ export class IncidentService {
     this.isInvestigating.set(true);
     this.activeError.set(null);
 
-    return this.http.post<InvestigationReport>(`${this.baseUrl}/incidents/${id}/investigate`, {}).pipe(
-      tap((report) => {
-        this.investigationReports.update((prev) => ({
-          ...prev,
-          [id]: report
-        }));
-        this.isInvestigating.set(false);
-        this.isBackendConnected.set(true);
-      }),
-      catchError((err) => {
-        console.warn(`Investigate endpoint failed or offline for ${id}. Providing high-fidelity simulated Gemini RCA analysis.`, err);
-        const incidentDetail = this.localIncidentDetails.get(id) || this.fallbackIncidents.find((i) => i.id === id) || this.selectedIncident();
-        const mockReport = this.fallbackReports[id] || (incidentDetail ? this.generateDynamicReport(incidentDetail) : this.fallbackReports['INC-5001']);
+    return this.http
+      .post<InvestigationReport>(`${this.baseUrl}/incidents/${id}/investigate`, {})
+      .pipe(
+        tap((report) => {
+          this.investigationReports.update((prev) => ({
+            ...prev,
+            [id]: report,
+          }));
+          this.isInvestigating.set(false);
+          this.isBackendConnected.set(true);
+        }),
+        catchError((err) => {
+          console.warn(
+            `Investigate endpoint failed or offline for ${id}. Providing high-fidelity simulated Gemini RCA analysis.`,
+            err,
+          );
+          const incidentDetail =
+            this.localIncidentDetails.get(id) ||
+            this.fallbackIncidents.find((i) => i.id === id) ||
+            this.selectedIncident();
+          const mockReport =
+            this.fallbackReports[id] ||
+            (incidentDetail
+              ? this.generateDynamicReport(incidentDetail)
+              : this.fallbackReports['INC-5001']);
 
-        // Simulate real LLM latency for realistic user feedback
-        return of(mockReport).pipe(
-          delay(1200),
-          tap((report) => {
-            this.investigationReports.update((prev) => ({
-              ...prev,
-              [id]: report
-            }));
-            this.isInvestigating.set(false);
-          })
-        );
-      })
-    );
+          // Simulate real LLM latency for realistic user feedback
+          return of(mockReport).pipe(
+            delay(1200),
+            tap((report) => {
+              this.investigationReports.update((prev) => ({
+                ...prev,
+                [id]: report,
+              }));
+              this.isInvestigating.set(false);
+            }),
+          );
+        }),
+      );
   }
 
   /**
    * Generates a grounded, high-fidelity RCA report for custom or chaos incidents when backend is offline
    */
   private generateDynamicReport(incident: IncidentDetail): InvestigationReport {
-    const errorLogs = (incident.logs || []).filter((l) => l.level === 'ERROR' || l.level === 'FATAL');
-    const primaryError = errorLogs[0]?.message || incident.logs?.[0]?.message || 'Uncaught exception during execution';
+    const errorLogs = (incident.logs || []).filter(
+      (l) => l.level === 'ERROR' || l.level === 'FATAL',
+    );
+    const primaryError =
+      errorLogs[0]?.message || incident.logs?.[0]?.message || 'Uncaught exception during execution';
 
     return {
       incident_id: incident.id,
@@ -565,34 +626,34 @@ export class IncidentService {
         {
           title: `Runbook: ${incident.service} Outage Triage & Fast Recovery`,
           doc_type: 'RUNBOOK',
-          similarity_score: 0.912
-        }
+          similarity_score: 0.912,
+        },
       ],
       evidence: (incident.logs || []).slice(0, 3).map((log) => ({
         source: `${log.service} log [${log.level}]`,
-        detail: log.message
+        detail: log.message,
       })),
       remediation_plan: [
         {
           action: `Inspect ${incident.service} container logs and process status`,
           priority: 'IMMEDIATE',
           description: `Execute: kubectl logs -l app=${incident.service} --tail=100 -n production | grep -E "ERROR|FATAL"`,
-          runbook_reference: `Runbook: ${incident.service} Outage Triage & Fast Recovery`
+          runbook_reference: `Runbook: ${incident.service} Outage Triage & Fast Recovery`,
         },
         {
           action: `Verify upstream rate-limiting and scale replicas`,
           priority: 'IMMEDIATE',
           description: `Scale deployment replicas by +50% or cycle unresponsive pods to flush starved connection handles.`,
-          runbook_reference: null
+          runbook_reference: null,
         },
         {
           action: `Audit retry backoff configuration and database query pool`,
           priority: 'SHORT_TERM',
           description: `Tune downstream connection pool timeout to prevent worker thread starvation.`,
-          runbook_reference: null
-        }
+          runbook_reference: null,
+        },
       ],
-      requires_human_escalation: incident.severity === 'CRITICAL'
+      requires_human_escalation: incident.severity === 'CRITICAL',
     };
   }
 
@@ -610,15 +671,18 @@ export class IncidentService {
         this.isBackendConnected.set(true);
       }),
       catchError((err) => {
-        console.warn('Evaluation suite endpoint failed or offline. Generating benchmark report.', err);
+        console.warn(
+          'Evaluation suite endpoint failed or offline. Generating benchmark report.',
+          err,
+        );
         return of(this.fallbackEvaluation).pipe(
           delay(1800),
           tap((mockSuite) => {
             this.evaluationReport.set(mockSuite);
             this.isEvaluating.set(false);
-          })
+          }),
         );
-      })
+      }),
     );
   }
 
@@ -633,10 +697,12 @@ export class IncidentService {
   /**
    * POST /runbooks -> Index new Runbook / SOP into database
    */
-  public createRunbook(payload: RunbookCreate): Observable<{ id: number; title: string; status: string }> {
+  public createRunbook(
+    payload: RunbookCreate,
+  ): Observable<{ id: number; title: string; status: string }> {
     return this.http.post<{ id: number; title: string; status: string }>(
       `${this.systemConfig().apiUrl}/runbooks`,
-      payload
+      payload,
     );
   }
 

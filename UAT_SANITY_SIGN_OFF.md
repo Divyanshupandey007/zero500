@@ -17,7 +17,7 @@ All **7 automated backend probes** in `backend/sanity_check.py` passed with a **
 - Dynamic incident webhook ingestion into Neon PostgreSQL.
 - Read-after-write data integrity for incident logs and telemetry.
 - Neon `pgvector` semantic cosine similarity retrieval (`gemini-embedding-001`).
-- Gemini structured Root Cause Analysis (RCA) inference (`gemini-3.1-flash-lite`).
+- Gemini structured Root Cause Analysis (RCA) inference (`gemini-3.5-flash`).
 - Benchmark evaluation suite scorecards (`EVAL_GROUND_TRUTH` test dataset).
 - Rate-limiting shield defense returning HTTP `429 Too Many Requests`.
 
@@ -127,7 +127,7 @@ The live browser audit on `http://localhost:4200/` validated the following check
 1. **Environment Variables**:
    - `DATABASE_URL`: Ensure the Neon PostgreSQL pooled connection string includes `sslmode=require`.
    - `GEMINI_API_KEY`: Set your production Google Gemini API key.
-   - `GEMINI_MODEL`: Set to `gemini-3.1-flash-lite`.
+   - `GEMINI_MODEL`: Set to `gemini-3.5-flash`.
 2. **Build & Start Commands**:
    - Build Command: `pip install -r backend/requirements.txt`
    - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
@@ -153,3 +153,22 @@ The live browser audit on `http://localhost:4200/` validated the following check
 - **Audit Date**: 2026-10-19
 - **Status**: **PASSED (7/7 Backend Probes + All UI Checkpoints)**
 - **Recommendation**: **PROCEED WITH PHASE 7 DEPLOYMENT**
+
+---
+
+## 7. Known Limitations & Next Steps
+
+The recorded UAT run is green, but the evaluation surface is intentionally honest about where the system still has headroom. The most important number to keep in mind when demoing to recruiters or interviewers:
+
+- **Evidence faithfulness: 83%.** Roughly 17% of cited evidence items across the eval set could not be fully traced back to raw telemetry. See the failure-mode breakdown and planned mitigations in [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) (§5).
+
+Planned next steps, in priority order:
+
+1. **Reranking after retrieval.** Currently there is no reranker between pgvector's top-k and the model — a missed runbook means the model never sees it. Add a lightweight cross-encoder or a second Gemini scoring pass as the next retrieval improvement.
+2. **Citation-checking post-processing.** Verify each `EvidenceItem.source` appears in the raw telemetry before returning the report, to push faithfulness toward 100%.
+3. **Chunk-size experimentation.** Sweep the 500/50 character chunking (see `backend/app/data/chunking.py`) against Retrieval Recall@2 on `EVAL_GROUND_TRUTH` to confirm the current size is optimal.
+4. **Few-shot prompt examples.** Add labeled incident → report pairs to the Gemini prompt to improve diagnosis consistency.
+
+These are tracked as issues for the post-deployment iteration cycle and do not block the current release.
+
+---
