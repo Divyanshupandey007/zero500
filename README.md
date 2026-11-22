@@ -378,6 +378,15 @@ zero500/
 └── UAT_SANITY_SIGN_OFF.md
 ```
 
+## Screenshot capture
+
+The README screenshots under `README_assets/` were generated with two CDP-driven scripts in [`scripts/`](scripts/):
+
+- [`scripts/capture_screenshots.py`](scripts/capture_screenshots.py) — dashboard workbench tabs (home, incident selected, telemetry logs, runbooks, remediation playbook).
+- [`scripts/capture_modals.py`](scripts/capture_modals.py) — the Benchmark Scorecard modal.
+
+Both write to `../README_assets` by default and accept `--out-dir` or `ZERO500_OUT_DIR` to override. See [`scripts/README.md`](scripts/README.md) for usage.
+
 This is a high-level map of the main project areas; individual modules may be added as the implementation evolves.
 
 ## License
