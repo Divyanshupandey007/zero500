@@ -5,6 +5,7 @@ and --remote-allow-origins=*) to capture screenshots of the dashboard's differen
 workbench tabs and modals for the README.
 """
 
+import argparse
 import base64
 import json
 import os
@@ -15,7 +16,8 @@ import websocket
 
 
 DEBUG_PORT = 9222
-OUT_DIR = "D:/Projects/zero500/README_assets"
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUT_DIR = os.path.join(SCRIPTS_DIR, "..", "README_assets")
 
 
 def log(msg):
@@ -79,7 +81,15 @@ def wait(secs):
 
 
 def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
+    parser = argparse.ArgumentParser(description="Capture Zero500 frontend screenshots via CDP.")
+    parser.add_argument(
+        "--out-dir",
+        default=os.environ.get("ZERO500_OUT_DIR", DEFAULT_OUT_DIR),
+        help="Directory to write screenshots into (default: ../README_assets, overridable via ZERO500_OUT_DIR)",
+    )
+    args = parser.parse_args()
+    out_dir = os.path.abspath(args.out_dir)
+    os.makedirs(out_dir, exist_ok=True)
 
     ws_url = find_page_ws()
     log("connecting to " + ws_url)
@@ -90,7 +100,7 @@ def main():
     wait(3)
 
     # 1) Dashboard home (empty state - no incident selected)
-    cdp.screenshot(f"{OUT_DIR}/01_dashboard_home.png")
+    cdp.screenshot(f"{out_dir}/01_dashboard_home.png")
 
     # Check for incident cards in the sidebar
     incident_count = cdp.eval_js(
@@ -102,7 +112,7 @@ def main():
         # 2) Select the first incident -> shows workspace + PLAYBOOK tab (default)
         cdp.eval_click(".incident-card", "select first incident")
         wait(3)
-        cdp.screenshot(f"{OUT_DIR}/02_incident_selected_playbook.png")
+        cdp.screenshot(f"{out_dir}/02_incident_selected_playbook.png")
 
         # 3) Click Telemetry Log Explorer tab
         cdp.eval_click(".tab-btn", "Telemetry Log Explorer tab")
@@ -116,7 +126,7 @@ def main():
         })()
         """)
         wait(2)
-        cdp.screenshot(f"{OUT_DIR}/03_telemetry_log_explorer.png")
+        cdp.screenshot(f"{out_dir}/03_telemetry_log_explorer.png")
 
         # 4) Click Runbooks & Knowledge tab
         cdp.eval_js("""
@@ -128,7 +138,7 @@ def main():
         })()
         """)
         wait(2)
-        cdp.screenshot(f"{OUT_DIR}/04_runbooks_knowledge.png")
+        cdp.screenshot(f"{out_dir}/04_runbooks_knowledge.png")
 
         # 5) Back to Playbook
         cdp.eval_js("""
@@ -140,7 +150,7 @@ def main():
         })()
         """)
         wait(2)
-        cdp.screenshot(f"{OUT_DIR}/05_remediation_playbook.png")
+        cdp.screenshot(f"{out_dir}/05_remediation_playbook.png")
     else:
         log("No incidents found; skipping tab screenshots.")
 

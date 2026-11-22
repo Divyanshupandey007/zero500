@@ -15,6 +15,11 @@ ENV/
 *.egg-info/
 .pytest_cache/
 
+# Coverage artifacts (machine-generated, regenerated on each test run)
+.coverage
+.coverage.*
+htmlcov/
+
 # Angular
 node_modules/
 .angular/

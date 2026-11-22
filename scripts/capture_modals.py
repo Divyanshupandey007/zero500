@@ -6,8 +6,10 @@ import time
 import urllib.request
 import websocket
 
+
 DEBUG_PORT = 9222
-OUT_DIR = "D:/Projects/zero500/README_assets"
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUT_DIR = os.path.join(SCRIPTS_DIR, "..", "README_assets")
 
 
 def log(msg):
@@ -58,7 +60,15 @@ def wait(secs):
 
 
 def main():
-    os.makedirs(OUT_DIR, exist_ok=True)
+    parser = argparse.ArgumentParser(description="Capture Zero500 modal screenshots via CDP.")
+    parser.add_argument(
+        "--out-dir",
+        default=os.environ.get("ZERO500_OUT_DIR", DEFAULT_OUT_DIR),
+        help="Directory to write screenshots into (default: ../README_assets, overridable via ZERO500_OUT_DIR)",
+    )
+    args = parser.parse_args()
+    out_dir = os.path.abspath(args.out_dir)
+    os.makedirs(out_dir, exist_ok=True)
     cdp = CDP(find_page_ws())
     cdp.send("Page.enable")
     cdp.send("Runtime.enable")
@@ -75,7 +85,7 @@ def main():
     })()
     """)
     wait(2)
-    cdp.screenshot(f"{OUT_DIR}/06_eval_scorecard_modal.png")
+    cdp.screenshot(f"{out_dir}/06_eval_scorecard_modal.png")
 
     log("Done.")
 
